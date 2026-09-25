@@ -2,10 +2,11 @@ package com.jcaa.usersmanagement.application.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 import com.jcaa.usersmanagement.application.port.out.EmailSenderPort;
+import com.jcaa.usersmanagement.application.port.out.dto.EmailNotificationRequest;
+import com.jcaa.usersmanagement.application.port.out.dto.EmailTemplate;
 import com.jcaa.usersmanagement.domain.enums.UserRole;
 import com.jcaa.usersmanagement.domain.enums.UserStatus;
 import com.jcaa.usersmanagement.domain.exception.EmailSenderException;
@@ -14,46 +15,43 @@ import com.jcaa.usersmanagement.domain.valueobject.UserEmail;
 import com.jcaa.usersmanagement.domain.valueobject.UserId;
 import com.jcaa.usersmanagement.domain.valueobject.UserName;
 import com.jcaa.usersmanagement.domain.valueobject.UserPassword;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests para EmailNotificationService.
  *
- * <p>Cubre: flujos felices de notificación, re-lanzamiento de EmailSenderException, template no
- * encontrado (is == null) e IOException al leer el template.
+ * <p>Cubre: composicion de la solicitud de notificacion (destinatario, asunto, plantilla y
+ * variables), que la contrasena nunca viaja en el correo, y que el fallo del puerto SMTP se
+ * registre sin propagarse.
  */
 @DisplayName("EmailNotificationService")
 @ExtendWith(MockitoExtension.class)
 class EmailNotificationServiceTest {
 
   @Mock private EmailSenderPort emailSenderPort;
-  @Mock private EmailSenderPort spyEmailSenderPort;
 
   private EmailNotificationService service;
-  private EmailNotificationService serviceSpy;
 
   private static final String EMAIL = "john@example.com";
   private static final String NAME = "John Arrieta";
   private static final String PASSWORD = "SecurePass1";
-  private static final String TEMPLATE_CONTENT =
-      "<html>{{name}} {{email}} {{password}} {{role}} {{status}}</html>";
+  private static final String TOKEN_NAME = "name";
+  private static final String TOKEN_EMAIL = "email";
+  private static final String TOKEN_ROLE = "role";
+  private static final String TOKEN_STATUS = "status";
+  private static final String TOKEN_PASSWORD = "password";
 
   private UserModel user;
 
   @BeforeEach
   void setUp() {
     service = new EmailNotificationService(emailSenderPort);
-    serviceSpy = spy(new EmailNotificationService(spyEmailSenderPort));
-
     user =
         new UserModel(
             new UserId("u-001"),
@@ -64,111 +62,83 @@ class EmailNotificationServiceTest {
             UserStatus.ACTIVE);
   }
 
-  // ── notifyUserCreated() — flujo feliz
+  // ── notifyUserCreated() — composicion de la solicitud
 
   @Test
-  @DisplayName("notifyUserCreated() invoca el puerto con el email y asunto correctos")
-  void shouldSendCreatedNotificationToCorrectEmail() {
+  @DisplayName("notifyUserCreated() envia la plantilla USER_CREATED sin exponer la contrasena")
+  void shouldSendCreatedNotificationWithoutPassword() {
     // Act
-    service.notifyUserCreated(user, PASSWORD);
+    service.notifyUserCreated(user);
 
     // Assert
-    verify(emailSenderPort)
-        .send(
-            argThat(
-                dest ->
-                    EMAIL.equals(dest.getDestinationEmail())
-                        && dest.getSubject().contains("creada")));
+    final EmailNotificationRequest request = captureRequest();
+    assertAll(
+        "solicitud de creacion",
+        () -> assertEquals(EMAIL, request.recipientEmail()),
+        () -> assertEquals(NAME, request.recipientName()),
+        () -> assertEquals(EmailTemplate.USER_CREATED, request.template()),
+        () -> assertTrue(request.subject().contains("creada"), "asunto de cuenta creada"),
+        () -> assertEquals(NAME, request.variables().get(TOKEN_NAME)),
+        () -> assertEquals(EMAIL, request.variables().get(TOKEN_EMAIL)),
+        () -> assertEquals(UserRole.ADMIN.name(), request.variables().get(TOKEN_ROLE)),
+        () -> assertFalse(request.variables().containsKey(TOKEN_PASSWORD), "no debe haber token de contrasena"),
+        () -> assertFalse(request.variables().containsValue(PASSWORD), "la contrasena no debe viajar"));
   }
 
-  // ── notifyUserUpdated() — flujo feliz
+  // ── notifyUserUpdated() — composicion de la solicitud
 
   @Test
-  @DisplayName("notifyUserUpdated() invoca el puerto con el email y asunto correctos")
-  void shouldSendUpdatedNotificationToCorrectEmail() {
+  @DisplayName("notifyUserUpdated() envia la plantilla USER_UPDATED con rol y estado")
+  void shouldSendUpdatedNotificationWithRoleAndStatus() {
     // Act
     service.notifyUserUpdated(user);
 
     // Assert
-    verify(emailSenderPort)
-        .send(
-            argThat(
-                dest ->
-                    EMAIL.equals(dest.getDestinationEmail())
-                        && dest.getSubject().contains("actualizada")));
+    final EmailNotificationRequest request = captureRequest();
+    assertAll(
+        "solicitud de actualizacion",
+        () -> assertEquals(EMAIL, request.recipientEmail()),
+        () -> assertEquals(NAME, request.recipientName()),
+        () -> assertEquals(EmailTemplate.USER_UPDATED, request.template()),
+        () -> assertTrue(request.subject().contains("actualizada"), "asunto de cuenta actualizada"),
+        () -> assertEquals(NAME, request.variables().get(TOKEN_NAME)),
+        () -> assertEquals(EMAIL, request.variables().get(TOKEN_EMAIL)),
+        () -> assertEquals(UserRole.ADMIN.name(), request.variables().get(TOKEN_ROLE)),
+        () -> assertEquals(UserStatus.ACTIVE.name(), request.variables().get(TOKEN_STATUS)));
   }
 
-  // ── re-lanzar EmailSenderException en notifyUserCreated
+  // ── fallo SMTP no propagado
 
   @Test
-  @DisplayName("notifyUserCreated() re-lanza EmailSenderException cuando el puerto falla")
-  void shouldRethrowEmailSenderExceptionOnCreate() {
+  @DisplayName("notifyUserCreated() no propaga el fallo del puerto SMTP")
+  void shouldNotPropagateEmailSenderExceptionOnCreate() {
     // Arrange
     final EmailSenderException cause =
-        EmailSenderException.becauseSmtpFailed(EMAIL, "Connection refused");
+        EmailSenderException.becauseSmtpFailed("Connection refused");
     doThrow(cause).when(emailSenderPort).send(any());
 
     // Act & Assert
-    assertThrows(EmailSenderException.class, () -> service.notifyUserCreated(user, PASSWORD));
+    assertDoesNotThrow(() -> service.notifyUserCreated(user));
+    verify(emailSenderPort).send(any());
   }
 
-  // ── re-lanzar EmailSenderException en notifyUserUpdated
-
   @Test
-  @DisplayName("notifyUserUpdated() re-lanza EmailSenderException cuando el puerto falla")
-  void shouldRethrowEmailSenderExceptionOnUpdate() {
+  @DisplayName("notifyUserUpdated() no propaga el fallo del puerto SMTP")
+  void shouldNotPropagateEmailSenderExceptionOnUpdate() {
     // Arrange
     final EmailSenderException cause =
-        EmailSenderException.becauseSmtpFailed(EMAIL, "Connection refused");
+        EmailSenderException.becauseSmtpFailed("Connection refused");
     doThrow(cause).when(emailSenderPort).send(any());
 
     // Act & Assert
-    assertThrows(EmailSenderException.class, () -> service.notifyUserUpdated(user));
+    assertDoesNotThrow(() -> service.notifyUserUpdated(user));
+    verify(emailSenderPort).send(any());
   }
 
-  // ── loadTemplate() — rama: template no encontrado (is == null)
-
-  @Test
-  @DisplayName(
-      "loadTemplate() lanza EmailSenderException cuando el template no existe en classpath")
-  void shouldThrowWhenTemplateNotFound() {
-    // Arrange — openResourceStream retorna null simulando template ausente en classpath
-    doReturn(null).when(serviceSpy).openResourceStream(any());
-
-    // Act & Assert
-    assertThrows(EmailSenderException.class, () -> serviceSpy.notifyUserCreated(user, PASSWORD));
-  }
-
-  // ── loadTemplate() — rama: IOException al leer el stream
-
-  @Test
-  @DisplayName(
-      "loadTemplate() lanza EmailSenderException cuando ocurre IOException al leer el stream")
-  void shouldThrowWhenTemplateThrowsIOException() throws IOException {
-    // Arrange — stream que lanza IOException al invocar readAllBytes()
-    final InputStream brokenStream = mock(InputStream.class);
-    doThrow(new IOException("Disk error")).when(brokenStream).readAllBytes();
-    doReturn(brokenStream).when(serviceSpy).openResourceStream(any());
-
-    // Act & Assert
-    assertThrows(EmailSenderException.class, () -> serviceSpy.notifyUserCreated(user, PASSWORD));
-  }
-
-  // ── renderTemplate() — todos los tokens se sustituyen
-
-  @Test
-  @DisplayName("renderTemplate() sustituye todos los tokens del template correctamente")
-  void shouldRenderAllTokensInTemplate() {
-    // Arrange — template propio con todos los tokens del método notifyUserCreated
-    final InputStream templateStream =
-        new ByteArrayInputStream(TEMPLATE_CONTENT.getBytes(StandardCharsets.UTF_8));
-    doReturn(templateStream).when(serviceSpy).openResourceStream(any());
-
-    // Act
-    serviceSpy.notifyUserCreated(user, PASSWORD);
-
-    // Assert — el body enviado contiene los valores interpolados
-    verify(spyEmailSenderPort)
-        .send(argThat(dest -> dest.getBody().contains(NAME) && dest.getBody().contains(EMAIL)));
+  private EmailNotificationRequest captureRequest() {
+    final ArgumentCaptor<EmailNotificationRequest> captor =
+        ArgumentCaptor.forClass(EmailNotificationRequest.class);
+    verify(emailSenderPort).send(captor.capture());
+    return captor.getValue();
   }
 }

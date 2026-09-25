@@ -17,21 +17,41 @@ class EmailSenderExceptionTest {
   // ── becauseSmtpFailed()
 
   @Test
-  @DisplayName("becauseSmtpFailed() debe formatear el mensaje incluyendo el email y el error SMTP")
-  void shouldFormatMessageWithEmailAndSmtpError() {
+  @DisplayName("becauseSmtpFailed() debe formatear el mensaje con el error SMTP y sin datos personales")
+  void shouldFormatMessageWithSmtpErrorAndNoPersonalData() {
     // Arrange
     final String destinationEmail = "user@example.com";
     final String smtpError = "Connection refused";
 
     // Act
-    final String message =
-        EmailSenderException.becauseSmtpFailed(destinationEmail, smtpError).getMessage();
+    final String message = EmailSenderException.becauseSmtpFailed(smtpError).getMessage();
 
     // Assert
     assertAll(
         "becauseSmtpFailed",
-        () -> assertTrue(message.contains(destinationEmail), "el mensaje debe contener el email"),
-        () -> assertTrue(message.contains(smtpError), "el mensaje debe contener el error SMTP"));
+        () -> assertTrue(message.contains(smtpError), "el mensaje debe contener el error SMTP"),
+        () ->
+            assertFalse(
+                message.contains(destinationEmail),
+                "el mensaje no debe contener el email del destinatario (PII en logs)"));
+  }
+
+  // ── becauseProviderFailed()
+
+  @Test
+  @DisplayName("becauseProviderFailed() debe formatear el mensaje con el detalle del proveedor")
+  void shouldFormatMessageWithProviderError() {
+    // Arrange
+    final String providerError = "HTTP 422 Unprocessable Entity";
+
+    // Act
+    final String message = EmailSenderException.becauseProviderFailed(providerError).getMessage();
+
+    // Assert
+    assertAll(
+        "becauseProviderFailed",
+        () -> assertTrue(message.contains(providerError), "el mensaje debe contener el detalle"),
+        () -> assertTrue(message.contains("proveedor"), "debe identificar el origen del fallo"));
   }
 
   // ── becauseSendFailed()

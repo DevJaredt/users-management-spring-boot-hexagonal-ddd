@@ -1,9 +1,12 @@
 package com.jcaa.usersmanagement.infrastructure.adapter.email;
 
 import com.jcaa.usersmanagement.application.port.out.EmailSenderPort;
+import com.jcaa.usersmanagement.application.port.out.dto.EmailNotificationRequest;
 import com.jcaa.usersmanagement.domain.exception.EmailSenderException;
-import com.jcaa.usersmanagement.domain.model.EmailDestinationModel;
+import com.jcaa.usersmanagement.infrastructure.adapter.email.EmailProviderProperties;
+import com.jcaa.usersmanagement.infrastructure.adapter.email.template.ClasspathEmailTemplateRenderer;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import javax.mail.Authenticator;
@@ -19,12 +22,19 @@ import java.util.Properties;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(
+    name = EmailProviderProperties.PROVIDER,
+    havingValue = EmailProviderProperties.JAVAMAIL,
+    matchIfMissing = true)
 public class JavaMailEmailSenderAdapter implements EmailSenderPort {
 
   private static final String MAIL_SMTP_HOST = "mail.smtp.host";
   private static final String MAIL_SMTP_PORT = "mail.smtp.port";
   private static final String MAIL_SMTP_AUTH = "mail.smtp.auth";
   private static final String MAIL_SMTP_STARTTLS = "mail.smtp.starttls.enable";
+  private static final String MAIL_SMTP_CONNECTION_TIMEOUT = "mail.smtp.connectiontimeout";
+  private static final String MAIL_SMTP_READ_TIMEOUT = "mail.smtp.timeout";
+  private static final String MAIL_SMTP_WRITE_TIMEOUT = "mail.smtp.writetimeout";
   private static final String CONTENT_TYPE_HTML = "text/html; charset=UTF-8";
   private static final String CHARSET_UTF8 = "UTF-8";
   private static final String LOG_SENT = "[JavaMailEmailSenderAdapter] correo enviado exitosamente.";
@@ -32,35 +42,37 @@ public class JavaMailEmailSenderAdapter implements EmailSenderPort {
   private final Session mailSession;
   private final String fromAddress;
   private final String fromName;
+  private final ClasspathEmailTemplateRenderer templateRenderer;
 
-  public JavaMailEmailSenderAdapter(final SmtpConfig config) {
+  public JavaMailEmailSenderAdapter(
+      final SmtpConfig config, final ClasspathEmailTemplateRenderer templateRenderer) {
     this.fromAddress = config.fromAddress();
     this.fromName = config.fromName();
+    this.templateRenderer = templateRenderer;
     this.mailSession = buildSession(config);
   }
 
   @Override
-  public void send(final EmailDestinationModel destination) {
+  public void send(final EmailNotificationRequest request) {
     try {
-      final MimeMessage message = buildMessage(destination);
+      final String body = templateRenderer.render(request.template(), request.variables());
+      final MimeMessage message = buildMessage(request, body);
       Transport.send(message);
       log.info(LOG_SENT);
     } catch (final MessagingException | UnsupportedEncodingException exception) {
-      throw EmailSenderException.becauseSmtpFailed(
-          destination.getDestinationEmail(), exception.getMessage());
+      throw EmailSenderException.becauseSmtpFailed(exception.getMessage());
     }
   }
 
-  private MimeMessage buildMessage(final EmailDestinationModel destination)
+  private MimeMessage buildMessage(final EmailNotificationRequest request, final String body)
       throws MessagingException, UnsupportedEncodingException {
     final MimeMessage message = new MimeMessage(mailSession);
     message.setFrom(new InternetAddress(fromAddress, fromName, CHARSET_UTF8));
     message.addRecipient(
         Message.RecipientType.TO,
-        new InternetAddress(
-            destination.getDestinationEmail(), destination.getDestinationName(), CHARSET_UTF8));
-    message.setSubject(destination.getSubject(), CHARSET_UTF8);
-    message.setContent(destination.getBody(), CONTENT_TYPE_HTML);
+        new InternetAddress(request.recipientEmail(), request.recipientName(), CHARSET_UTF8));
+    message.setSubject(request.subject(), CHARSET_UTF8);
+    message.setContent(body, CONTENT_TYPE_HTML);
     return message;
   }
 
@@ -77,11 +89,17 @@ public class JavaMailEmailSenderAdapter implements EmailSenderPort {
   }
 
   private static Properties buildSmtpProperties(final SmtpConfig config) {
+    // Sin timeout explicito javax.mail espera indefinidamente (timeout -1) y bloquea el hilo
+    // de envio hasta que expira el TCP del sistema operativo.
+    final String timeoutMillis = String.valueOf(config.timeoutMillis());
     final Properties properties = new Properties();
     properties.put(MAIL_SMTP_HOST, config.host());
     properties.put(MAIL_SMTP_PORT, String.valueOf(config.port()));
     properties.put(MAIL_SMTP_AUTH, "true");
     properties.put(MAIL_SMTP_STARTTLS, "true");
+    properties.put(MAIL_SMTP_CONNECTION_TIMEOUT, timeoutMillis);
+    properties.put(MAIL_SMTP_READ_TIMEOUT, timeoutMillis);
+    properties.put(MAIL_SMTP_WRITE_TIMEOUT, timeoutMillis);
     return properties;
   }
 }

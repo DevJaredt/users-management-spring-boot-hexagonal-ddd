@@ -1,7 +1,7 @@
 package com.jcaa.usersmanagement.application.port.out;
 
-import com.jcaa.usersmanagement.domain.model.EmailDestinationModel;
+import com.jcaa.usersmanagement.application.port.out.dto.EmailNotificationRequest;
 
 public interface EmailSenderPort {
-  void send(EmailDestinationModel destination);
+  void send(EmailNotificationRequest request);
 }
