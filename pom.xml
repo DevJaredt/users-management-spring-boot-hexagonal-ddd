@@ -21,7 +21,6 @@
     <!-- Versiones de dependencias no gestionadas por el BOM de Spring Boot -->
     <lombok.version>1.18.36</lombok.version>
     <mysql.connector.version>9.3.0</mysql.connector.version>
-    <javamail.version>1.6.2</javamail.version>
     <bcrypt.version>0.10.2</bcrypt.version>
     <jjwt.version>0.13.0</jjwt.version>
     <!-- Declarativas: Mockito y Jacoco siguen siendo explícitas para tener control -->
@@ -78,11 +77,10 @@
       <version>${mysql.connector.version}</version>
     </dependency>
 
-    <!-- JavaMail API (javax.mail legacy — NO migrado a jakarta.mail, intencional) -->
+    <!-- Kafka: el servicio users publica eventos de usuario (paso 2 del diagrama) -->
     <dependency>
-      <groupId>com.sun.mail</groupId>
-      <artifactId>javax.mail</artifactId>
-      <version>${javamail.version}</version>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
     </dependency>
 
     <!-- BCrypt para hashing de contraseñas -->

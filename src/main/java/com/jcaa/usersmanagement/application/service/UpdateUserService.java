@@ -4,6 +4,9 @@ import com.jcaa.usersmanagement.application.port.in.UpdateUserUseCase;
 import com.jcaa.usersmanagement.application.port.out.GetUserByEmailPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateUserPort;
+import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
+import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
+import com.jcaa.usersmanagement.application.port.out.dto.UserEventType;
 import com.jcaa.usersmanagement.application.service.dto.command.UpdateUserCommand;
 import com.jcaa.usersmanagement.application.service.mapper.UserApplicationMapper;
 import com.jcaa.usersmanagement.domain.exception.UserAlreadyExistsException;
@@ -19,6 +22,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Set;
 
+/**
+ * Actualizacion de usuario: persiste y publica el evento de dominio en Kafka (paso 2, asincrono).
+ */
 @Service
 @RequiredArgsConstructor
 public class UpdateUserService implements UpdateUserUseCase {
@@ -26,7 +32,7 @@ public class UpdateUserService implements UpdateUserUseCase {
   private final UpdateUserPort updateUserPort;
   private final GetUserByIdPort getUserByIdPort;
   private final GetUserByEmailPort getUserByEmailPort;
-  private final EmailNotificationService emailNotificationService;
+  private final UserEventPublisherPort userEventPublisherPort;
   private final Validator validator;
 
   @Override
@@ -43,9 +49,20 @@ public class UpdateUserService implements UpdateUserUseCase {
         UserApplicationMapper.fromUpdateCommandToModel(command, current.getPassword());
     final UserModel updatedUser = updateUserPort.update(userToUpdate);
 
-    emailNotificationService.notifyUserUpdated(updatedUser);
+    publishUserEvent(updatedUser);
 
     return updatedUser;
+  }
+
+  private void publishUserEvent(final UserModel user) {
+    userEventPublisherPort.publish(
+        new UserEvent(
+            UserEventType.USER_UPDATED,
+            user.getId().value(),
+            user.getName().value(),
+            user.getEmail().value(),
+            user.getRole().name(),
+            user.getStatus().name()));
   }
 
   private void validateCommand(final UpdateUserCommand command) {

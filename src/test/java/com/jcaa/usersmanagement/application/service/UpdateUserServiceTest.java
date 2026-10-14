@@ -7,6 +7,8 @@ import static org.mockito.Mockito.*;
 import com.jcaa.usersmanagement.application.port.out.GetUserByEmailPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateUserPort;
+import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
+import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
 import com.jcaa.usersmanagement.application.service.dto.command.UpdateUserCommand;
 import com.jcaa.usersmanagement.domain.enums.UserRole;
 import com.jcaa.usersmanagement.domain.enums.UserStatus;
@@ -41,7 +43,7 @@ class UpdateUserServiceTest {
   @Mock private UpdateUserPort updateUserPort;
   @Mock private GetUserByIdPort getUserByIdPort;
   @Mock private GetUserByEmailPort getUserByEmailPort;
-  @Mock private EmailNotificationService emailNotificationService;
+  @Mock private UserEventPublisherPort userEventPublisherPort;
 
   private UpdateUserService service;
 
@@ -59,7 +61,7 @@ class UpdateUserServiceTest {
               updateUserPort,
               getUserByIdPort,
               getUserByEmailPort,
-              emailNotificationService,
+              userEventPublisherPort,
               validatorFactory.getValidator());
     }
 
@@ -92,7 +94,7 @@ class UpdateUserServiceTest {
     // Assert
     assertNotNull(result);
     verify(updateUserPort).update(any(UserModel.class));
-    verify(emailNotificationService).notifyUserUpdated(existingUser);
+    verify(userEventPublisherPort).publish(any(UserEvent.class));
   }
 
   // ── usuario no encontrado
