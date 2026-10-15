@@ -58,6 +58,7 @@ Cada servicio se compila, se prueba y se despliega por separado.
 ## Documentación
 
 - [Esquema de la base de datos](docs/esquema-base-datos.md) — tablas `users` y `accounts`, DDL y datos semilla.
+- [Tópicos de Kafka y contrato de los eventos](docs/kafka-topicos-y-eventos.md) — productores, consumidores y JSON de cada evento.
 
 ## Verificación (tests)
 
