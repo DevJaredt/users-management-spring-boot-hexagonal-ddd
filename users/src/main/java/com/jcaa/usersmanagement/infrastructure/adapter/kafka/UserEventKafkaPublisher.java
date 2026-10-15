@@ -2,6 +2,7 @@ package com.jcaa.usersmanagement.infrastructure.adapter.kafka;
 
 import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
+import com.jcaa.usersmanagement.application.port.out.dto.UserEventType;
 import com.jcaa.usersmanagement.infrastructure.adapter.kafka.dto.UserEventMessage;
 import java.time.Instant;
 import java.util.UUID;
@@ -11,7 +12,14 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Publica los cambios de usuario en el topico {@code user-events} (paso 2 del diagrama).
+ * Publica los cambios de usuario en Kafka (paso 2 del diagrama) como JSON.
+ *
+ * <p>Enruta segun el tipo de evento:
+ *
+ * <ul>
+ *   <li>{@code USER_CREATED} -&gt; topico {@code create-user}
+ *   <li>{@code USER_UPDATED} -&gt; topico {@code update-user}
+ * </ul>
  *
  * <p>La publicacion es <b>no bloqueante</b>: {@code KafkaTemplate.send} es asincrono, asi que la
  * peticion HTTP no espera al broker. Si el broker no esta disponible se registra un aviso y la
@@ -23,22 +31,33 @@ import org.springframework.stereotype.Component;
 public class UserEventKafkaPublisher implements UserEventPublisherPort {
 
   private static final String LOG_PUBLISHED =
-      "[UserEventKafkaPublisher] evento publicado. eventId={} tipo={} userId={}";
+      "[UserEventKafkaPublisher] evento publicado. eventId={} tipo={} userId={} topico={}";
   private static final String LOG_PUBLISH_FAILED =
       "[UserEventKafkaPublisher] no se pudo publicar el evento. tipo={} userId={} causa={}";
+  private static final String LOG_SKIPPED =
+      "[UserEventKafkaPublisher] tipo de evento sin topico asociado; no se publica. tipo={} userId={}";
 
   private final KafkaTemplate<String, UserEventMessage> kafkaTemplate;
-  private final String topic;
+  private final String createUserTopic;
+  private final String updateUserTopic;
 
   public UserEventKafkaPublisher(
       final KafkaTemplate<String, UserEventMessage> kafkaTemplate,
-      @Value("${kafka.topic.user-events}") final String topic) {
+      @Value("${kafka.topic.create-user}") final String createUserTopic,
+      @Value("${kafka.topic.update-user}") final String updateUserTopic) {
     this.kafkaTemplate = kafkaTemplate;
-    this.topic = topic;
+    this.createUserTopic = createUserTopic;
+    this.updateUserTopic = updateUserTopic;
   }
 
   @Override
   public void publish(final UserEvent event) {
+    final String topic = topicFor(event.type());
+    if (topic == null) {
+      log.info(LOG_SKIPPED, event.type(), event.userId());
+      return;
+    }
+
     final String eventId = UUID.randomUUID().toString();
     final UserEventMessage message =
         new UserEventMessage(
@@ -52,9 +71,17 @@ public class UserEventKafkaPublisher implements UserEventPublisherPort {
             event.status());
     try {
       kafkaTemplate.send(topic, event.userId(), message);
-      log.info(LOG_PUBLISHED, eventId, event.type(), event.userId());
+      log.info(LOG_PUBLISHED, eventId, event.type(), event.userId(), topic);
     } catch (final RuntimeException exception) {
       log.warn(LOG_PUBLISH_FAILED, event.type(), event.userId(), exception.getClass().getSimpleName());
     }
+  }
+
+  private String topicFor(final UserEventType type) {
+    return switch (type) {
+      case USER_CREATED -> createUserTopic;
+      case USER_UPDATED -> updateUserTopic;
+      default -> null;
+    };
   }
 }

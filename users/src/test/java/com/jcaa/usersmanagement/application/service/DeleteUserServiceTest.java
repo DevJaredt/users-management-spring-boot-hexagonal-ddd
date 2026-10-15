@@ -6,8 +6,6 @@ import static org.mockito.Mockito.*;
 
 import com.jcaa.usersmanagement.application.port.out.DeleteUserPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
-import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
-import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
 import com.jcaa.usersmanagement.application.service.dto.command.DeleteUserCommand;
 import com.jcaa.usersmanagement.domain.enums.UserRole;
 import com.jcaa.usersmanagement.domain.enums.UserStatus;
@@ -31,7 +29,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Tests para DeleteUserService.
  *
- * <p>Cubre: flujo feliz (delete invocado), usuario no encontrado y validación del command.
+ * <p>Cubre: flujo feliz (delete invocado, sin publicar eventos), usuario no encontrado y validación
+ * del command.
  */
 @DisplayName("DeleteUserService")
 @ExtendWith(MockitoExtension.class)
@@ -39,7 +38,6 @@ class DeleteUserServiceTest {
 
   @Mock private DeleteUserPort deleteUserPort;
   @Mock private GetUserByIdPort getUserByIdPort;
-  @Mock private UserEventPublisherPort userEventPublisherPort;
 
   private DeleteUserService service;
 
@@ -48,10 +46,7 @@ class DeleteUserServiceTest {
     try (final ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
       service =
           new DeleteUserService(
-              deleteUserPort,
-              getUserByIdPort,
-              userEventPublisherPort,
-              validatorFactory.getValidator());
+              deleteUserPort, getUserByIdPort, validatorFactory.getValidator());
     }
   }
 
@@ -79,7 +74,6 @@ class DeleteUserServiceTest {
 
     // Assert
     verify(deleteUserPort).delete(new UserId("u-001"));
-    verify(userEventPublisherPort).publish(any(UserEvent.class));
   }
 
   // ── usuario no encontrado
@@ -95,7 +89,6 @@ class DeleteUserServiceTest {
     // Act & Assert
     assertThrows(UserNotFoundException.class, () -> service.execute(command));
     verify(deleteUserPort, never()).delete(any());
-    verify(userEventPublisherPort, never()).publish(any());
   }
 
   // ── validación del command
@@ -108,6 +101,6 @@ class DeleteUserServiceTest {
 
     // Act & Assert
     assertThrows(ConstraintViolationException.class, () -> service.execute(command));
-    verifyNoInteractions(deleteUserPort, getUserByIdPort, userEventPublisherPort);
+    verifyNoInteractions(deleteUserPort, getUserByIdPort);
   }
 }

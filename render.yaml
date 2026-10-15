@@ -35,15 +35,17 @@ services:
       - key: KAFKA_BOOTSTRAP_SERVERS
         sync: false
       - key: KAFKA_SECURITY_PROTOCOL
-        value: SASL_SSL
-      - key: KAFKA_SASL_MECHANISM
-        value: SCRAM-SHA-256
-      - key: KAFKA_SASL_JAAS_CONFIG
+        value: SSL
+      - key: KAFKA_SSL_KEY
         sync: false
-      - key: KAFKA_TRUSTSTORE_LOCATION
+      - key: KAFKA_SSL_CERT
         sync: false
-      - key: KAFKA_TOPIC_USER_EVENTS
-        value: user-events
+      - key: KAFKA_SSL_CA
+        sync: false
+      - key: KAFKA_TOPIC_CREATE_USER
+        value: create-user
+      - key: KAFKA_TOPIC_UPDATE_USER
+        value: update-user
       - key: KAFKA_TOPICS_AUTO_CREATE
         value: "false"
       - key: ACCOUNTS_BASE_URL
@@ -67,17 +69,21 @@ services:
       - key: KAFKA_BOOTSTRAP_SERVERS
         sync: false
       - key: KAFKA_SECURITY_PROTOCOL
-        value: SASL_SSL
-      - key: KAFKA_SASL_MECHANISM
-        value: SCRAM-SHA-256
-      - key: KAFKA_SASL_JAAS_CONFIG
+        value: SSL
+      - key: KAFKA_SSL_KEY
         sync: false
-      - key: KAFKA_TRUSTSTORE_LOCATION
+      - key: KAFKA_SSL_CERT
+        sync: false
+      - key: KAFKA_SSL_CA
         sync: false
       - key: KAFKA_CONSUMER_GROUP
         value: notifiers-group
-      - key: KAFKA_TOPIC_USER_EVENTS
-        value: user-events
+      - key: KAFKA_TOPIC_CREATE_USER
+        value: create-user
+      - key: KAFKA_TOPIC_UPDATE_USER
+        value: update-user
+      - key: KAFKA_TOPIC_CREATE_ACCOUNT
+        value: create-account
       - key: KAFKA_TOPIC_NOTIFICATION_STATUS
         value: notification-status
       - key: KAFKA_TOPICS_AUTO_CREATE
@@ -112,3 +118,17 @@ services:
         sync: false
       - key: DB_SSL_MODE
         value: REQUIRED
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SSL
+      - key: KAFKA_SSL_KEY
+        sync: false
+      - key: KAFKA_SSL_CERT
+        sync: false
+      - key: KAFKA_SSL_CA
+        sync: false
+      - key: KAFKA_TOPIC_CREATE_ACCOUNT
+        value: create-account
+      - key: KAFKA_TOPICS_AUTO_CREATE
+        value: "false"

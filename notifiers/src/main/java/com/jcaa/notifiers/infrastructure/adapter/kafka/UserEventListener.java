@@ -2,7 +2,6 @@ package com.jcaa.notifiers.infrastructure.adapter.kafka;
 
 import com.jcaa.notifiers.application.exception.EmailDeliveryException;
 import com.jcaa.notifiers.application.service.UserNotificationService;
-import com.jcaa.notifiers.infrastructure.adapter.kafka.dto.NotificationStatusMessage;
 import com.jcaa.notifiers.infrastructure.adapter.kafka.dto.NotificationStatusMessage.NotificationStatus;
 import com.jcaa.notifiers.infrastructure.adapter.kafka.dto.UserEventMessage;
 import java.util.Objects;
@@ -12,7 +11,7 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Consumidor del topico {@code user-events} (pasos 3 y 4 del diagrama).
+ * Consumidor de los topicos {@code create-user} y {@code update-user} (pasos 3 y 4 del diagrama).
  *
  * <p>Traduce el evento a una notificacion de negocio ({@link UserNotificationService}) y publica
  * el resultado en {@code notification-status} (paso 7). Los datos personales nunca se registran en
@@ -36,14 +35,18 @@ public class UserEventListener {
   private final NotificationStatusPublisher statusPublisher;
 
   @KafkaListener(
-      topics = "${kafka.topic.user-events}",
-      groupId = "${spring.kafka.consumer.group-id}")
+      topics = {"${kafka.topic.create-user}", "${kafka.topic.update-user}"},
+      groupId = "${spring.kafka.consumer.group-id}",
+      properties = {
+        "spring.json.value.default.type=com.jcaa.notifiers.infrastructure.adapter.kafka.dto.UserEventMessage"
+      })
   public void onUserEvent(final UserEventMessage event) {
     log.info(LOG_RECEIVED, event.eventId(), event.eventType(), event.userId());
 
     if (isBlank(event.email()) || isBlank(event.eventId())) {
       log.warn(LOG_FAILED, event.eventId(), DETAIL_MISSING_DATA);
-      statusPublisher.publish(event, NotificationStatus.FAILED, DETAIL_MISSING_DATA);
+      statusPublisher.publish(
+          event.eventId(), event.userId(), NotificationStatus.FAILED, DETAIL_MISSING_DATA);
       return;
     }
 
@@ -52,10 +55,11 @@ public class UserEventListener {
       if (NotificationStatus.SENT == status) {
         log.info(LOG_SENT, event.eventId());
       }
-      statusPublisher.publish(event, status, null);
+      statusPublisher.publish(event.eventId(), event.userId(), status, null);
     } catch (final EmailDeliveryException exception) {
       log.warn(LOG_FAILED, event.eventId(), exception.getClass().getSimpleName());
-      statusPublisher.publish(event, NotificationStatus.FAILED, exception.getMessage());
+      statusPublisher.publish(
+          event.eventId(), event.userId(), NotificationStatus.FAILED, exception.getMessage());
     }
   }
 

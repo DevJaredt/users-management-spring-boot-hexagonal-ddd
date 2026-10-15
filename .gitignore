@@ -41,3 +41,6 @@ build/
 *.log
 
 /spec/
+
+### Secretos locales (certificados de Kafka, etc.) — NUNCA subir
+/secrets/

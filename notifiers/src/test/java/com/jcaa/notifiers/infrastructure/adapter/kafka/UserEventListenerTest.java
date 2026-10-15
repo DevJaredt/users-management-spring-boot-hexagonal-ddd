@@ -105,7 +105,7 @@ class UserEventListenerTest {
 
   private NotificationStatus captureStatus() {
     final ArgumentCaptor<NotificationStatus> captor = ArgumentCaptor.forClass(NotificationStatus.class);
-    verify(statusPublisher).publish(any(UserEventMessage.class), captor.capture(), any());
+    verify(statusPublisher).publish(anyString(), anyString(), captor.capture(), any());
     return captor.getValue();
   }
 
