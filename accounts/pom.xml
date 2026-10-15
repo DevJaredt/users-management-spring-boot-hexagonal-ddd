@@ -23,6 +23,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <lombok.version>1.18.36</lombok.version>
     <mysql.connector.version>9.3.0</mysql.connector.version>
+    <springdoc.version>2.6.0</springdoc.version>
   </properties>
 
   <dependencies>
@@ -42,6 +43,13 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- SpringDoc OpenAPI: Swagger UI en /swagger-ui/index.html -->
+    <dependency>
+      <groupId>org.springdoc</groupId>
+      <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+      <version>${springdoc.version}</version>
     </dependency>
 
     <!-- Kafka: accounts publica el evento create-account (paso 7 del diagrama) -->

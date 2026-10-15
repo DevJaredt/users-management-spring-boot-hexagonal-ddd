@@ -39,6 +39,12 @@ public class UserNotificationService {
           + "<li><strong>Estado:</strong> %s</li></ul>"
           + "</body></html>";
 
+  private static final String SUBJECT_TEST = "Prueba de notificaciones — Gestion de Usuarios";
+  private static final String BODY_TEST =
+      "<html><body><h2>Hola, %s</h2>"
+          + "<p>Este es un correo de prueba del microservicio de notificaciones.</p>"
+          + "</body></html>";
+
   private final EmailSenderPort emailSenderPort;
 
   /** Correo de alta: se envia cuando {@code accounts} confirma que la cuenta quedo persistida. */
@@ -59,6 +65,20 @@ public class UserNotificationService {
             name,
             SUBJECT_UPDATED,
             String.format(BODY_UPDATED, escape(name), escape(email), escape(role), escape(status))));
+  }
+
+  /**
+   * Correo de prueba: permite validar la conexion SMTP (Brevo) sin pasar por Kafka. Lo usa el
+   * endpoint {@code POST /api/notifications/test-email}.
+   */
+  public void notifyTest(final String name, final String email) {
+    final String recipientName = (name == null || name.isBlank()) ? "equipo" : name;
+    send(
+        new EmailMessage(
+            email,
+            recipientName,
+            SUBJECT_TEST,
+            String.format(BODY_TEST, escape(recipientName))));
   }
 
   private void send(final EmailMessage message) {
