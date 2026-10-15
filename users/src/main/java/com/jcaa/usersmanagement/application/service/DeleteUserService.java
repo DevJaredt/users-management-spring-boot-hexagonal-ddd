@@ -3,9 +3,6 @@ package com.jcaa.usersmanagement.application.service;
 import com.jcaa.usersmanagement.application.port.in.DeleteUserUseCase;
 import com.jcaa.usersmanagement.application.port.out.DeleteUserPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
-import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
-import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
-import com.jcaa.usersmanagement.application.port.out.dto.UserEventType;
 import com.jcaa.usersmanagement.application.service.dto.command.DeleteUserCommand;
 import com.jcaa.usersmanagement.application.service.mapper.UserApplicationMapper;
 import com.jcaa.usersmanagement.domain.exception.UserNotFoundException;
@@ -20,7 +17,8 @@ import org.springframework.stereotype.Service;
 import java.util.Set;
 
 /**
- * Baja de usuario: elimina y publica el evento de dominio en Kafka (paso 2, asincrono).
+ * Baja de usuario: elimina el registro. El borrado <b>no</b> emite eventos a Kafka: solo el alta
+ * ({@code create-user}) y la actualizacion ({@code update-user}) se publican.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,7 +26,6 @@ public class DeleteUserService implements DeleteUserUseCase {
 
   private final DeleteUserPort deleteUserPort;
   private final GetUserByIdPort getUserByIdPort;
-  private final UserEventPublisherPort userEventPublisherPort;
   private final Validator validator;
 
   @Override
@@ -36,21 +33,9 @@ public class DeleteUserService implements DeleteUserUseCase {
     validateCommand(command);
 
     final UserId userId = UserApplicationMapper.fromDeleteCommandToUserId(command);
-    final UserModel existingUser = findUserOrFail(userId);
+    findUserOrFail(userId);
 
     deleteUserPort.delete(userId);
-    publishUserEvent(existingUser);
-  }
-
-  private void publishUserEvent(final UserModel user) {
-    userEventPublisherPort.publish(
-        new UserEvent(
-            UserEventType.USER_DELETED,
-            user.getId().value(),
-            user.getName().value(),
-            user.getEmail().value(),
-            user.getRole().name(),
-            user.getStatus().name()));
   }
 
   private void validateCommand(final DeleteUserCommand command) {

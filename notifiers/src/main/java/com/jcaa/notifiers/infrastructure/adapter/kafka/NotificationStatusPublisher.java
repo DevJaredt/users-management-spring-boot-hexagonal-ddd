@@ -2,7 +2,6 @@ package com.jcaa.notifiers.infrastructure.adapter.kafka;
 
 import com.jcaa.notifiers.infrastructure.adapter.kafka.dto.NotificationStatusMessage;
 import com.jcaa.notifiers.infrastructure.adapter.kafka.dto.NotificationStatusMessage.NotificationStatus;
-import com.jcaa.notifiers.infrastructure.adapter.kafka.dto.UserEventMessage;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,16 +31,15 @@ public class NotificationStatusPublisher {
   }
 
   public void publish(
-      final UserEventMessage event, final NotificationStatus status, final String detail) {
+      final String eventId, final String userId, final NotificationStatus status, final String detail) {
     final NotificationStatusMessage message =
-        new NotificationStatusMessage(
-            event.eventId(), event.userId(), status, detail, Instant.now().toString());
+        new NotificationStatusMessage(eventId, userId, status, detail, Instant.now().toString());
     try {
-      kafkaTemplate.send(topic, event.userId(), message);
-      log.info(LOG_PUBLISHED, event.eventId(), status);
+      kafkaTemplate.send(topic, userId, message);
+      log.info(LOG_PUBLISHED, eventId, status);
     } catch (final RuntimeException exception) {
       // Publicar el estado es informativo: no debe tumbar el consumo del evento.
-      log.warn(LOG_PUBLISH_FAILED, event.eventId(), exception.getClass().getSimpleName());
+      log.warn(LOG_PUBLISH_FAILED, eventId, exception.getClass().getSimpleName());
     }
   }
 }

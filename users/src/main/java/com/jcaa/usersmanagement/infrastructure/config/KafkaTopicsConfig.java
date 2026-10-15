@@ -8,10 +8,11 @@ import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaAdmin.NewTopics;
 
 /**
- * Crea el topico de eventos de usuario cuando el broker lo permite (desarrollo local).
+ * Crea los topicos que publica users ({@code create-user} y {@code update-user}) cuando el broker
+ * lo permite (desarrollo local).
  *
- * <p>Con Aiven puede que los permisos no permitan crearlo desde la aplicacion: en ese caso se pasa
- * {@code KAFKA_TOPICS_AUTO_CREATE=false} y se crea en la consola de Aiven.
+ * <p>Con Aiven puede que los permisos no permitan crearlos desde la aplicacion: en ese caso se pasa
+ * {@code KAFKA_TOPICS_AUTO_CREATE=false} y se crean en la consola de Aiven.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnProperty(
@@ -24,8 +25,11 @@ public class KafkaTopicsConfig {
   private static final int REPLICAS = 1;
 
   @Bean
-  public NewTopics userEventsTopic(@Value("${kafka.topic.user-events}") final String topic) {
+  public NewTopics userTopics(
+      @Value("${kafka.topic.create-user}") final String createUserTopic,
+      @Value("${kafka.topic.update-user}") final String updateUserTopic) {
     return new NewTopics(
-        TopicBuilder.name(topic).partitions(PARTITIONS).replicas(REPLICAS).build());
+        TopicBuilder.name(createUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
+        TopicBuilder.name(updateUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build());
   }
 }

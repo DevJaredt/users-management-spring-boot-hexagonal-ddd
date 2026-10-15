@@ -1,7 +1,7 @@
 package com.jcaa.notifiers.infrastructure.adapter.kafka.dto;
 
 /**
- * Evento de usuario que viaja por el topico {@code user-events}.
+ * Evento de usuario que viaja por los topicos {@code create-user} y {@code update-user}.
  *
  * <p>Es el contrato entre el servicio <b>users</b> (productor) y <b>notifiers</b> (consumidor).
  * Corresponde al paso 2 y 3 del diagrama de arquitectura.

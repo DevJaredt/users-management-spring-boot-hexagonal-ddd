@@ -78,6 +78,23 @@ class UserNotificationServiceTest {
         () -> assertTrue(message.htmlBody().contains("&lt;script&gt;")));
   }
 
+  @Test
+  @DisplayName("notifyAccountCreated() compone el mensaje de la cuenta de servicio")
+  void shouldComposeAccountCreatedMessage() {
+    // Act
+    service.notifyAccountCreated(NAME, EMAIL);
+
+    // Assert
+    final EmailMessage message = captureMessage();
+    assertAll(
+        "mensaje de cuenta creada",
+        () -> assertEquals(EMAIL, message.recipientEmail()),
+        () -> assertEquals(NAME, message.recipientName()),
+        () -> assertTrue(message.subject().contains("servicio")),
+        () -> assertTrue(message.htmlBody().contains(NAME)),
+        () -> assertTrue(message.htmlBody().contains(EMAIL)));
+  }
+
   private EmailMessage captureMessage() {
     final ArgumentCaptor<EmailMessage> captor = ArgumentCaptor.forClass(EmailMessage.class);
     verify(emailSenderPort).send(captor.capture());

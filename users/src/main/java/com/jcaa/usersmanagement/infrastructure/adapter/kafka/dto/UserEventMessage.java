@@ -3,7 +3,7 @@ package com.jcaa.usersmanagement.infrastructure.adapter.kafka.dto;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEventType;
 
 /**
- * Evento de usuario tal como viaja por el topico {@code user-events}.
+ * Evento de usuario tal como viaja por los topicos {@code create-user} y {@code update-user}.
  *
  * <p>Contrato entre el servicio <b>users</b> (productor) y <b>notifiers</b> (consumidor).
  */

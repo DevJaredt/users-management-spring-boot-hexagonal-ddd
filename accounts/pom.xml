@@ -44,6 +44,12 @@
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
 
+    <!-- Kafka: accounts publica el evento create-account (paso 7 del diagrama) -->
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
+
     <!-- MySQL / TiDB -->
     <dependency>
       <groupId>com.mysql</groupId>

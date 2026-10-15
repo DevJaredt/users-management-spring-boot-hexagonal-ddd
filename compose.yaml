@@ -74,7 +74,8 @@ services:
       DB_PASSWORD: local_users_password
       DB_SSL_MODE: DISABLED
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      KAFKA_TOPIC_USER_EVENTS: user-events
+      KAFKA_TOPIC_CREATE_USER: create-user
+      KAFKA_TOPIC_UPDATE_USER: update-user
       ACCOUNTS_BASE_URL: http://accounts:8082
       JWT_SECRET: ${JWT_SECRET:-ZGV2ZWxvcG1lbnQtb25seS1qd3Qtc2VjcmV0LW11c3QtYmUtcmVwbGFjZWQ=}
       JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-900}
@@ -101,7 +102,9 @@ services:
       PORT: "8081"
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_CONSUMER_GROUP: notifiers-group
-      KAFKA_TOPIC_USER_EVENTS: user-events
+      KAFKA_TOPIC_CREATE_USER: create-user
+      KAFKA_TOPIC_UPDATE_USER: update-user
+      KAFKA_TOPIC_CREATE_ACCOUNT: create-account
       KAFKA_TOPIC_NOTIFICATION_STATUS: notification-status
       BREVO_API_KEY: ${BREVO_API_KEY:-xkeysib-local-dummy}
       BREVO_FROM_ADDRESS: ${BREVO_FROM_ADDRESS:-noreply@example.com}
@@ -129,10 +132,14 @@ services:
       DB_USERNAME: users_app
       DB_PASSWORD: local_users_password
       DB_SSL_MODE: DISABLED
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_CREATE_ACCOUNT: create-account
     ports:
       - "8082:8082"
     depends_on:
       mysql:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     restart: unless-stopped
 

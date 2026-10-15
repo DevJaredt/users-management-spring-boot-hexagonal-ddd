@@ -25,10 +25,14 @@ public class KafkaTopicsConfig {
 
   @Bean
   public NewTopics notifiersTopics(
-      @Value("${kafka.topic.user-events}") final String userEventsTopic,
+      @Value("${kafka.topic.create-user}") final String createUserTopic,
+      @Value("${kafka.topic.update-user}") final String updateUserTopic,
+      @Value("${kafka.topic.create-account}") final String createAccountTopic,
       @Value("${kafka.topic.notification-status}") final String notificationStatusTopic) {
     return new NewTopics(
-        TopicBuilder.name(userEventsTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
+        TopicBuilder.name(createUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
+        TopicBuilder.name(updateUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
+        TopicBuilder.name(createAccountTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
         TopicBuilder
             .name(notificationStatusTopic)
             .partitions(PARTITIONS)

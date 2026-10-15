@@ -19,6 +19,8 @@ public class UserNotificationService {
   private static final String SUBJECT_CREATED = "Tu cuenta ha sido creada — Gestion de Usuarios";
   private static final String SUBJECT_UPDATED =
       "Tu cuenta ha sido actualizada — Gestion de Usuarios";
+  private static final String SUBJECT_ACCOUNT_CREATED =
+      "Tu cuenta de servicio ha sido creada — Gestion de Usuarios";
 
   private static final String BODY_CREATED =
       "<html><body><h2>Hola, %s</h2>"
@@ -34,6 +36,12 @@ public class UserNotificationService {
           + "<ul><li><strong>Email:</strong> %s</li>"
           + "<li><strong>Rol:</strong> %s</li>"
           + "<li><strong>Estado:</strong> %s</li></ul>"
+          + "</body></html>";
+
+  private static final String BODY_ACCOUNT_CREATED =
+      "<html><body><h2>Hola, %s</h2>"
+          + "<p>Tu cuenta de servicio ha sido creada exitosamente.</p>"
+          + "<ul><li><strong>Email:</strong> %s</li></ul>"
           + "</body></html>";
 
   private final EmailSenderPort emailSenderPort;
@@ -56,6 +64,15 @@ public class UserNotificationService {
             name,
             SUBJECT_UPDATED,
             String.format(BODY_UPDATED, escape(name), escape(email), escape(role), escape(status))));
+  }
+
+  public void notifyAccountCreated(final String name, final String email) {
+    send(
+        new EmailMessage(
+            email,
+            name,
+            SUBJECT_ACCOUNT_CREATED,
+            String.format(BODY_ACCOUNT_CREATED, escape(name), escape(email))));
   }
 
   private void send(final EmailMessage message) {
