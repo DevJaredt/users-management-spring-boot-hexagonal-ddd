@@ -66,7 +66,7 @@ if (-not $mavenBin) {
 if (-not $mavenBin) {
     Write-Host ""
     Write-Host "Maven no encontrado localmente. Descargando Maven 3.9.6..."
-    $wrapperScript = Join-Path $PSScriptRoot "mvnw.ps1"
+    $wrapperScript = Join-Path $PSScriptRoot "users\mvnw.ps1"
     if (Test-Path $wrapperScript) {
         & $wrapperScript --version | Out-Null
     } else {

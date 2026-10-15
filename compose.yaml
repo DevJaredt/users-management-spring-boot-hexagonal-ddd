@@ -1,0 +1,140 @@
+services:
+
+  # ===========================================================
+  # Base de datos compartida: tablas users y accounts
+  # ===========================================================
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: crud_usuarios
+      MYSQL_USER: users_app
+      MYSQL_PASSWORD: local_users_password
+      MYSQL_ROOT_PASSWORD: local_root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./users/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping --host=127.0.0.1 --user=root --password=$${MYSQL_ROOT_PASSWORD}
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  # ===========================================================
+  # Kafka en modo KRaft (sin ZooKeeper)
+  #   desde los contenedores: kafka:9092
+  #   desde tu maquina:       localhost:29092
+  # ===========================================================
+  kafka:
+    image: apache/kafka:3.9.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    ports:
+      - "29092:29092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  # ===========================================================
+  # Servicio users: API REST + JWT, publica eventos (pasos 1, 2, 5)
+  # ===========================================================
+  users:
+    build:
+      context: ./users
+      dockerfile: Dockerfile
+    image: users-management-api:local
+    environment:
+      PORT: "8080"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: crud_usuarios
+      DB_USERNAME: users_app
+      DB_PASSWORD: local_users_password
+      DB_SSL_MODE: DISABLED
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_USER_EVENTS: user-events
+      ACCOUNTS_BASE_URL: http://accounts:8082
+      JWT_SECRET: ${JWT_SECRET:-ZGV2ZWxvcG1lbnQtb25seS1qd3Qtc2VjcmV0LW11c3QtYmUtcmVwbGFjZWQ=}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-900}
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      accounts:
+        condition: service_started
+    restart: unless-stopped
+
+  # ===========================================================
+  # Servicio notifiers: consume eventos y envia el correo (pasos 3, 4, 7)
+  # ===========================================================
+  notifiers:
+    build:
+      context: ./notifiers
+      dockerfile: Dockerfile
+    image: notifiers-service:local
+    environment:
+      PORT: "8081"
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP: notifiers-group
+      KAFKA_TOPIC_USER_EVENTS: user-events
+      KAFKA_TOPIC_NOTIFICATION_STATUS: notification-status
+      BREVO_API_KEY: ${BREVO_API_KEY:-xkeysib-local-dummy}
+      BREVO_FROM_ADDRESS: ${BREVO_FROM_ADDRESS:-noreply@example.com}
+      BREVO_FROM_NAME: ${BREVO_FROM_NAME:-Gestion de Usuarios}
+    ports:
+      - "8081:8081"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===========================================================
+  # Servicio accounts: persiste la cuenta del usuario (paso 6)
+  # ===========================================================
+  accounts:
+    build:
+      context: ./accounts
+      dockerfile: Dockerfile
+    image: accounts-service:local
+    environment:
+      PORT: "8082"
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: crud_usuarios
+      DB_USERNAME: users_app
+      DB_PASSWORD: local_users_password
+      DB_SSL_MODE: DISABLED
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  mysql-data:

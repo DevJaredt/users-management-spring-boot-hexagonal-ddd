@@ -1,0 +1,114 @@
+# =============================================================================
+# Blueprint de Render: los 3 microservicios de la arquitectura
+#
+#   users      -> API REST + JWT, publica eventos y llama a accounts  (pasos 1, 2, 5)
+#   notifiers  -> consume eventos y envia el correo con Brevo         (pasos 3, 4, 7)
+#   accounts   -> persiste la cuenta asociada al usuario              (paso 6)
+#
+# Al crear el Blueprint, Render pide completar los secretos marcados con sync: false.
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------- users
+  - type: web
+    name: users-management-api
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    dockerContext: ./users
+    dockerfilePath: ./users/Dockerfile
+    healthCheckPath: /v3/api-docs
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        value: crud_usuarios
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_MODE
+        value: REQUIRED
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SASL_SSL
+      - key: KAFKA_SASL_MECHANISM
+        value: SCRAM-SHA-256
+      - key: KAFKA_SASL_JAAS_CONFIG
+        sync: false
+      - key: KAFKA_TRUSTSTORE_LOCATION
+        sync: false
+      - key: KAFKA_TOPIC_USER_EVENTS
+        value: user-events
+      - key: KAFKA_TOPICS_AUTO_CREATE
+        value: "false"
+      - key: ACCOUNTS_BASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_SECONDS
+        value: "900"
+
+  # ------------------------------------------------------------ notifiers
+  - type: web
+    name: notifiers-service
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    dockerContext: ./notifiers
+    dockerfilePath: ./notifiers/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SASL_SSL
+      - key: KAFKA_SASL_MECHANISM
+        value: SCRAM-SHA-256
+      - key: KAFKA_SASL_JAAS_CONFIG
+        sync: false
+      - key: KAFKA_TRUSTSTORE_LOCATION
+        sync: false
+      - key: KAFKA_CONSUMER_GROUP
+        value: notifiers-group
+      - key: KAFKA_TOPIC_USER_EVENTS
+        value: user-events
+      - key: KAFKA_TOPIC_NOTIFICATION_STATUS
+        value: notification-status
+      - key: KAFKA_TOPICS_AUTO_CREATE
+        value: "false"
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_FROM_ADDRESS
+        sync: false
+      - key: BREVO_FROM_NAME
+        value: Gestion de Usuarios
+
+  # ------------------------------------------------------------- accounts
+  - type: web
+    name: accounts-service
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    dockerContext: ./accounts
+    dockerfilePath: ./accounts/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        value: crud_usuarios
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_MODE
+        value: REQUIRED
