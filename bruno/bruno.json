@@ -2,5 +2,6 @@
   "version": "1",
   "name": "Users Management - Flujo completo",
   "type": "collection",
+  "defaultEnvironment": "Render",
   "ignore": ["node_modules", ".git"]
 }
