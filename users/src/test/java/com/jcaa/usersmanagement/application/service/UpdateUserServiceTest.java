@@ -6,8 +6,10 @@ import static org.mockito.Mockito.*;
 
 import com.jcaa.usersmanagement.application.port.out.GetUserByEmailPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
+import com.jcaa.usersmanagement.application.port.out.UpdateAccountPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateUserPort;
 import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
+import com.jcaa.usersmanagement.application.port.out.dto.AccountRequest;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
 import com.jcaa.usersmanagement.application.service.dto.command.UpdateUserCommand;
 import com.jcaa.usersmanagement.domain.enums.UserRole;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -41,6 +44,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class UpdateUserServiceTest {
 
   @Mock private UpdateUserPort updateUserPort;
+  @Mock private UpdateAccountPort updateAccountPort;
   @Mock private GetUserByIdPort getUserByIdPort;
   @Mock private GetUserByEmailPort getUserByEmailPort;
   @Mock private UserEventPublisherPort userEventPublisherPort;
@@ -59,6 +63,7 @@ class UpdateUserServiceTest {
       service =
           new UpdateUserService(
               updateUserPort,
+              updateAccountPort,
               getUserByIdPort,
               getUserByEmailPort,
               userEventPublisherPort,
@@ -171,5 +176,36 @@ class UpdateUserServiceTest {
     // Act & Assert
     assertThrows(ConstraintViolationException.class, () -> service.execute(command));
     verifyNoInteractions(updateUserPort, getUserByIdPort, getUserByEmailPort);
+  }
+
+  // ── sincronización de la cuenta asociada
+
+  @Test
+  @DisplayName("execute() sincroniza la cuenta asociada con el nuevo nombre")
+  void shouldSyncAccountOnUpdate() {
+    // Arrange
+    final UpdateUserCommand command =
+        new UpdateUserCommand(ID, "John Updated", EMAIL, null, "MEMBER", "ACTIVE");
+    final UserModel updated =
+        new UserModel(
+            new UserId(ID),
+            new UserName("John Updated"),
+            new UserEmail(EMAIL),
+            UserPassword.fromHash(HASH),
+            UserRole.MEMBER,
+            UserStatus.ACTIVE);
+
+    when(getUserByIdPort.getById(any())).thenReturn(Optional.of(existingUser));
+    when(getUserByEmailPort.getByEmail(any())).thenReturn(Optional.of(existingUser));
+    when(updateUserPort.update(any())).thenReturn(updated);
+
+    // Act
+    service.execute(command);
+
+    // Assert
+    final ArgumentCaptor<AccountRequest> captor = ArgumentCaptor.forClass(AccountRequest.class);
+    verify(updateAccountPort).updateAccount(captor.capture());
+    assertEquals(ID, captor.getValue().userId());
+    assertEquals("John Updated", captor.getValue().name());
   }
 }

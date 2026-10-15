@@ -3,8 +3,10 @@ package com.jcaa.usersmanagement.application.service;
 import com.jcaa.usersmanagement.application.port.in.UpdateUserUseCase;
 import com.jcaa.usersmanagement.application.port.out.GetUserByEmailPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
+import com.jcaa.usersmanagement.application.port.out.UpdateAccountPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateUserPort;
 import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
+import com.jcaa.usersmanagement.application.port.out.dto.AccountRequest;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEventType;
 import com.jcaa.usersmanagement.application.service.dto.command.UpdateUserCommand;
@@ -30,6 +32,7 @@ import java.util.Set;
 public class UpdateUserService implements UpdateUserUseCase {
 
   private final UpdateUserPort updateUserPort;
+  private final UpdateAccountPort updateAccountPort;
   private final GetUserByIdPort getUserByIdPort;
   private final GetUserByEmailPort getUserByEmailPort;
   private final UserEventPublisherPort userEventPublisherPort;
@@ -49,9 +52,16 @@ public class UpdateUserService implements UpdateUserUseCase {
         UserApplicationMapper.fromUpdateCommandToModel(command, current.getPassword());
     final UserModel updatedUser = updateUserPort.update(userToUpdate);
 
+    syncAccount(updatedUser);
     publishUserEvent(updatedUser);
 
     return updatedUser;
+  }
+
+  /** Sincroniza nombre y correo en la cuenta asociada (espejo del alta). */
+  private void syncAccount(final UserModel user) {
+    updateAccountPort.updateAccount(
+        new AccountRequest(user.getId().value(), user.getName().value(), user.getEmail().value()));
   }
 
   private void publishUserEvent(final UserModel user) {

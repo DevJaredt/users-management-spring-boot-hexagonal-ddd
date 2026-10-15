@@ -28,7 +28,7 @@ dependencias se resuelven con configuración y component scanning.
 
 | Servicio | Responsabilidad | Pasos del diagrama |
 |---|---|---|
-| **users** | CRUD de usuarios, JWT; publica `create-user`/`update-user` (productor 1) y crea la cuenta (REST) | 1, 2, 5 |
+| **users** | CRUD de usuarios, JWT; publica `create-user`/`update-user` (productor 1) y crea/sincroniza la cuenta (REST) | 1, 2, 5 |
 | **notifiers** | Consume `update-user` y `create-account` y envía el correo por el relay SMTP de Brevo; publica el estado | 3, 4 |
 | **accounts** | Persiste la cuenta asociada y publica `create-account` (productor 2) | 6, 7 |
 

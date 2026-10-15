@@ -2,6 +2,8 @@ package com.jcaa.accounts.infrastructure.adapter.persistence.repository;
 
 import com.jcaa.accounts.application.port.out.GetAccountByUserIdPort;
 import com.jcaa.accounts.application.port.out.SaveAccountPort;
+import com.jcaa.accounts.application.port.out.UpdateAccountPort;
+import com.jcaa.accounts.domain.exception.AccountNotFoundException;
 import com.jcaa.accounts.domain.model.AccountModel;
 import com.jcaa.accounts.infrastructure.adapter.persistence.exception.AccountPersistenceException;
 import java.sql.Connection;
@@ -21,7 +23,8 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 @RequiredArgsConstructor
-public class AccountRepositoryMySQL implements SaveAccountPort, GetAccountByUserIdPort {
+public class AccountRepositoryMySQL
+    implements SaveAccountPort, GetAccountByUserIdPort, UpdateAccountPort {
 
   private static final String SQL_SELECT_BY_USER_ID =
       "SELECT id, user_id, name, email FROM accounts WHERE user_id = ? LIMIT 1";
@@ -30,8 +33,12 @@ public class AccountRepositoryMySQL implements SaveAccountPort, GetAccountByUser
       "INSERT INTO accounts (id, user_id, name, email, created_at, updated_at) "
       + "VALUES (?, ?, ?, ?, NOW(), NOW())";
 
+  private static final String SQL_UPDATE_BY_USER_ID =
+      "UPDATE accounts SET name = ?, email = ?, updated_at = NOW() WHERE user_id = ?";
+
   private static final String ERROR_INSERT = "No se pudo crear la cuenta.";
   private static final String ERROR_SELECT = "No se pudo consultar la cuenta.";
+  private static final String ERROR_UPDATE = "No se pudo actualizar la cuenta.";
 
   private final DataSource dataSource;
 
@@ -67,6 +74,21 @@ public class AccountRepositoryMySQL implements SaveAccountPort, GetAccountByUser
       throw new AccountPersistenceException(ERROR_INSERT, exception);
     }
     return getByUserId(account.userId()).orElse(account);
+  }
+
+  @Override
+  public AccountModel updateByUserId(final String userId, final String name, final String email) {
+    try (final Connection connection = dataSource.getConnection();
+         final PreparedStatement statement = connection.prepareStatement(SQL_UPDATE_BY_USER_ID)) {
+      statement.setString(1, name);
+      statement.setString(2, email);
+      statement.setString(3, userId);
+      statement.executeUpdate();
+    } catch (final SQLException exception) {
+      throw new AccountPersistenceException(ERROR_UPDATE, exception);
+    }
+    return getByUserId(userId)
+        .orElseThrow(() -> AccountNotFoundException.becauseUserIdWasNotFound(userId));
   }
 
   private static AccountModel mapRow(final ResultSet resultSet) throws SQLException {
