@@ -14,7 +14,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      - ./users/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
       test:
         - CMD-SHELL
@@ -62,7 +62,7 @@ services:
   # ===========================================================
   users:
     build:
-      context: .
+      context: ./users
       dockerfile: Dockerfile
     image: users-management-api:local
     environment:

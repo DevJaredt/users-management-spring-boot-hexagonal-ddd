@@ -32,27 +32,29 @@ Infraestructura: **Kafka** (Aiven en producción) y **MySQL/TiDB** compartida po
 
 ## Estructura del repositorio
 
+Cada microservicio es un proyecto Maven **independiente y autocontenido** (su propio `pom.xml`,
+`src/`, `Dockerfile` y Maven Wrapper). La raíz solo contiene la documentación y la orquestación.
+
 ```
 .
-├── Dockerfile              # imagen del servicio users
 ├── compose.yaml            # pila local: Kafka + MySQL + los 3 servicios
 ├── render.yaml             # Blueprint con los 3 web services
-├── src/                    # servicio users (raíz del repo)
-├── notifiers/              # servicio notifiers (proyecto Maven independiente)
-└── accounts/               # servicio accounts (proyecto Maven independiente)
+├── users/                  # servicio users      (pasos 1, 2, 5)
+├── notifiers/              # servicio notifiers  (pasos 3, 4, 7)
+└── accounts/               # servicio accounts   (paso 6)
 ```
 
-Cada servicio es un proyecto Maven independiente: se compila y se despliega por separado.
+Cada servicio se compila, se prueba y se despliega por separado.
 
 ## Verificación (tests)
 
 ```bash
-./mvnw clean test                      # servicio users
-./mvnw -f notifiers/pom.xml clean test # servicio notifiers
-./mvnw -f accounts/pom.xml clean test  # servicio accounts
+cd users     && ./mvnw clean test   # servicio users
+cd notifiers && ./mvnw clean test   # servicio notifiers
+cd accounts  && ./mvnw clean test   # servicio accounts
 ```
 
-En Windows se puede utilizar `mvnw.cmd` o `mvnw.ps1`.
+En Windows se puede utilizar `mvnw.cmd` o `mvnw.ps1` dentro de cada carpeta.
 
 ## Ejecución local
 
@@ -90,7 +92,7 @@ commit que llegue a la rama `main`.
    `KAFKA_SASL_JAAS_CONFIG`, `KAFKA_TRUSTSTORE_LOCATION`, `ACCOUNTS_BASE_URL` (URL pública del
    servicio accounts), `BREVO_API_KEY` y `BREVO_FROM_ADDRESS`.
 3. Usar una instancia **MySQL/TiDB** accesible desde Internet o desde la red privada de Render y
-   ejecutar `src/main/resources/schema.sql` **una vez** para crear las tablas `users` y `accounts`.
+   ejecutar `users/src/main/resources/schema.sql` **una vez** para crear las tablas `users` y `accounts`.
 4. Crear los tópicos `user-events` y `notification-status` en el broker (o dejar
    `KAFKA_TOPICS_AUTO_CREATE=true`).
 5. Desplegar el Blueprint. El servicio `users` expone Swagger UI en `/swagger-ui.html`.

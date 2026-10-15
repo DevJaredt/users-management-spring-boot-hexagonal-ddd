@@ -16,8 +16,8 @@ services:
     plan: free
     branch: main
     autoDeployTrigger: commit
-    dockerContext: .
-    dockerfilePath: ./Dockerfile
+    dockerContext: ./users
+    dockerfilePath: ./users/Dockerfile
     healthCheckPath: /v3/api-docs
     envVars:
       - key: DB_HOST
