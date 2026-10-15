@@ -41,7 +41,7 @@ class AccountEventListenerTest {
   }
 
   @Test
-  @DisplayName("un ACCOUNT_CREATED notifica y publica el estado SENT")
+  @DisplayName("un ACCOUNT_CREATED notifica el alta (usuario + cuenta) y publica SENT")
   void shouldNotifyAndPublishSent() {
     // Act
     listener.onAccountEvent(event(EMAIL));
@@ -55,7 +55,7 @@ class AccountEventListenerTest {
   @DisplayName("si el proveedor falla publica FAILED sin propagar la excepcion a Kafka")
   void shouldPublishFailedWhenDeliveryFails() {
     // Arrange
-    doThrow(EmailDeliveryException.becauseProviderFailed("HTTP 500"))
+    doThrow(EmailDeliveryException.becauseProviderFailed("SMTP 550"))
         .when(userNotificationService)
         .notifyAccountCreated(NAME, EMAIL);
 

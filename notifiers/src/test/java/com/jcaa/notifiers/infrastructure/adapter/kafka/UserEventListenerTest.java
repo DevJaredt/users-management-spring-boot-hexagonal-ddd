@@ -42,17 +42,6 @@ class UserEventListenerTest {
   }
 
   @Test
-  @DisplayName("un USER_CREATED notifica y publica el estado SENT")
-  void shouldNotifyAndPublishSentOnCreated() {
-    // Act
-    listener.onUserEvent(event(UserEventType.USER_CREATED));
-
-    // Assert
-    verify(userNotificationService).notifyUserCreated(NAME, EMAIL, ROLE);
-    assertEquals(NotificationStatus.SENT, captureStatus());
-  }
-
-  @Test
   @DisplayName("un USER_UPDATED notifica con el estado de la cuenta")
   void shouldNotifyOnUpdated() {
     // Act
@@ -70,7 +59,8 @@ class UserEventListenerTest {
     listener.onUserEvent(event(UserEventType.USER_DELETED));
 
     // Assert
-    verify(userNotificationService, never()).notifyUserCreated(anyString(), anyString(), anyString());
+    verify(userNotificationService, never())
+        .notifyUserUpdated(anyString(), anyString(), anyString(), anyString());
     assertEquals(NotificationStatus.SKIPPED, captureStatus());
   }
 
@@ -78,12 +68,12 @@ class UserEventListenerTest {
   @DisplayName("si el proveedor falla publica FAILED sin propagar la excepcion de vuelta a Kafka")
   void shouldPublishFailedWhenDeliveryFails() {
     // Arrange
-    doThrow(EmailDeliveryException.becauseProviderFailed("HTTP 500"))
+    doThrow(EmailDeliveryException.becauseProviderFailed("SMTP 550"))
         .when(userNotificationService)
-        .notifyUserCreated(NAME, EMAIL, ROLE);
+        .notifyUserUpdated(NAME, EMAIL, ROLE, STATUS);
 
     // Act & Assert
-    assertDoesNotThrow(() -> listener.onUserEvent(event(UserEventType.USER_CREATED)));
+    assertDoesNotThrow(() -> listener.onUserEvent(event(UserEventType.USER_UPDATED)));
     assertEquals(NotificationStatus.FAILED, captureStatus());
   }
 
@@ -93,18 +83,27 @@ class UserEventListenerTest {
     // Arrange
     final UserEventMessage incomplete =
         new UserEventMessage(
-            EVENT_ID, UserEventType.USER_CREATED, "2026-01-01T00:00:00Z", USER_ID, NAME, "  ", ROLE, STATUS);
+            EVENT_ID,
+            UserEventType.USER_UPDATED,
+            "2026-01-01T00:00:00Z",
+            USER_ID,
+            NAME,
+            "  ",
+            ROLE,
+            STATUS);
 
     // Act
     listener.onUserEvent(incomplete);
 
     // Assert
-    verify(userNotificationService, never()).notifyUserCreated(anyString(), anyString(), anyString());
+    verify(userNotificationService, never())
+        .notifyUserUpdated(anyString(), anyString(), anyString(), anyString());
     assertEquals(NotificationStatus.FAILED, captureStatus());
   }
 
   private NotificationStatus captureStatus() {
-    final ArgumentCaptor<NotificationStatus> captor = ArgumentCaptor.forClass(NotificationStatus.class);
+    final ArgumentCaptor<NotificationStatus> captor =
+        ArgumentCaptor.forClass(NotificationStatus.class);
     verify(statusPublisher).publish(anyString(), anyString(), captor.capture(), any());
     return captor.getValue();
   }

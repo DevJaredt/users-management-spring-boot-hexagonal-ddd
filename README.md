@@ -13,30 +13,33 @@ dependencias se resuelven con configuración y component scanning.
                      ┌─────────────────────── RENDER ───────────────────────┐
                      │                                                      │
    paso 1 (sync) ────┼──▶  users  ── paso 5 (sync) ──▶  accounts  ── paso 6 ─┼─▶ TiDB
-                     │      │                            │                  │  (MySQL)
-   paso 2 (async) ───┼──────┘ publica                    └── publica         │
-                     │        create-user / update-user       create-account │
-                     │             │                              │          │
-                     │             └─────────▶  Kafka  ◀──────────┘          │
-                     │                          │  ▲                        │
-                     │           paso 3 ────────┘  └──── paso 7 (async) ───┐ │
-                     │               ▼                                    │ │
-                     │           notifiers ── paso 4 (sync) ──▶  Brevo ◀───┘ │
+                     │      │  ▲                          │                  │  (MySQL)
+   paso 2 (async) ───┼──────┘  │ publica                  └── paso 7 (async) │
+                     │         │ create-user/update-user      publica        │
+                     │         │                              create-account │
+                     │         │                                  │          │
+                     │         └──────────▶  AIVEN Kafka  ◀───────┘          │
+                     │                          │  ▲                          │
+                     │            paso 3 ───────┘  └── notification-status    │
+                     │                ▼                     (async)          │
+                     │            notifiers ── paso 4 (sync) ──▶ SMTP/Brevo   │
                      └──────────────────────────────────────────────────────┘
 ```
 
 | Servicio | Responsabilidad | Pasos del diagrama |
 |---|---|---|
-| **users** | CRUD de usuarios, JWT; publica `create-user`/`update-user` y crea la cuenta (REST) | 1, 2, 5 |
-| **notifiers** | Consume los 3 tópicos y envía el correo con la API REST de Brevo; publica el estado | 3, 4, 7 |
-| **accounts** | Persiste la cuenta asociada y publica `create-account` | 6, 7 |
+| **users** | CRUD de usuarios, JWT; publica `create-user`/`update-user` (productor 1) y crea la cuenta (REST) | 1, 2, 5 |
+| **notifiers** | Consume `update-user` y `create-account` y envía el correo por el relay SMTP de Brevo; publica el estado | 3, 4 |
+| **accounts** | Persiste la cuenta asociada y publica `create-account` (productor 2) | 6, 7 |
 
 Infraestructura: **Kafka** (Aiven en producción, con **SSL/mTLS** por certificado de cliente) y
 **MySQL/TiDB** compartida por `users` y `accounts` (tablas `users` y `accounts`).
 
 Tópicos: `create-user` y `update-user` (los publica **users**), `create-account` (lo publica
-**accounts**) y `notification-status` (lo publica **notifiers**, paso 7). **notifiers** consume los
-tres primeros.
+**accounts**, paso 7) y `notification-status` (lo publica **notifiers**). Hay **dos productores**
+hacia Kafka: `users` (Paso 2) y `accounts` (Paso 7). **notifiers** consume `update-user` y
+`create-account`; el **alta** se notifica una sola vez desde `create-account` (`create-user` queda
+como evento informativo, sin correo).
 
 ## Estructura del repositorio
 
@@ -86,11 +89,17 @@ docker compose up --build
 | notifiers (health) | http://localhost:8081/actuator/health |
 | Kafka (desde tu equipo) | `localhost:29092` |
 
-Para probar el envío real de correo, exporta antes las credenciales de Brevo:
+Para probar el envío real de correo, exporta antes las credenciales SMTP de Brevo
+(Brevo → SMTP & API → SMTP):
 
 ```bash
-BREVO_API_KEY=xkeysib-... BREVO_FROM_ADDRESS=remitente@verificado.com docker compose up --build
+BREVO_SMTP_USERNAME=be4003001@smtp-brevo.com BREVO_SMTP_PASSWORD=xsmtpsib-... \
+BREVO_FROM_ADDRESS=remitente@verificado.com docker compose up --build
 ```
+
+El `BREVO_SMTP_USERNAME` es el **login SMTP** que muestra Brevo (formato
+`beXXXXXXX@smtp-brevo.com`), no tu correo personal. La contraseña es la **SMTP key** que genera
+Brevo en "Open SMTP key settings".
 
 Sin credenciales la pila igualmente arranca: el envío falla contra Brevo y queda registrado como
 `FAILED` en el tópico `notification-status` (el flujo completo se puede observar en los logs).
@@ -130,12 +139,18 @@ commit que llegue a la rama `main`.
 2. Completar en el panel los secretos marcados como requeridos:
    `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`,
    `KAFKA_SSL_KEY`, `KAFKA_SSL_CERT`, `KAFKA_SSL_CA` (los 3 PEM del certificado de cliente),
-   `ACCOUNTS_BASE_URL` (URL pública del servicio accounts), `BREVO_API_KEY` y `BREVO_FROM_ADDRESS`.
+   `ACCOUNTS_BASE_URL` (URL pública del servicio accounts), `BREVO_SMTP_USERNAME`,
+   `BREVO_SMTP_PASSWORD` y `BREVO_FROM_ADDRESS`.
 3. Usar una instancia **MySQL/TiDB** accesible desde Internet o desde la red privada de Render y
    ejecutar `users/src/main/resources/schema.sql` **una vez** para crear las tablas `users` y `accounts`.
 4. Crear los tópicos `create-user`, `update-user`, `create-account` y `notification-status` en el
    broker (o dejar `KAFKA_TOPICS_AUTO_CREATE=true`).
 5. Desplegar el Blueprint. El servicio `users` expone Swagger UI en `/swagger-ui.html`.
+
+> **Puerto SMTP en Render.** El plan **free** de Render bloquea el tráfico saliente por los puertos
+> `25`, `465` y `587`, así que el servicio `notifiers` sale por el puerto **`2525`** de Brevo
+> (definido en `render.yaml`). Si subes `notifiers-service` a un plan pago, puedes usar `587`
+> (STARTTLS) cambiando `BREVO_SMTP_PORT`.
 
 Las credenciales nunca deben guardarse en `application.properties` ni en `render.yaml`. Para
 desarrollo local se proporcionan como variables de entorno.
@@ -149,8 +164,10 @@ desarrollo local se proporcionan como variables de entorno.
 | `KAFKA_SECURITY_PROTOCOL=SSL`, `KAFKA_SSL_KEY`, `KAFKA_SSL_CERT`, `KAFKA_SSL_CA` | users, notifiers, accounts | certificado de cliente (mTLS) de Aiven: los 3 PEM |
 | `KAFKA_TOPIC_CREATE_USER`, `KAFKA_TOPIC_UPDATE_USER` | users, notifiers | tópicos de usuarios |
 | `KAFKA_TOPIC_CREATE_ACCOUNT` | accounts, notifiers | tópico de cuentas |
-| `KAFKA_TOPIC_NOTIFICATION_STATUS` | notifiers | estado del envío (paso 7) |
+| `KAFKA_TOPIC_NOTIFICATION_STATUS` | notifiers | estado del envío (async) |
 | `ACCOUNTS_BASE_URL` | users | URL del servicio accounts |
-| `BREVO_API_KEY`, `BREVO_FROM_ADDRESS`, `BREVO_FROM_NAME` | notifiers | API transaccional de Brevo |
+| `BREVO_SMTP_HOST`, `BREVO_SMTP_PORT`, `BREVO_SMTP_AUTH`, `BREVO_SMTP_STARTTLS`, `BREVO_SMTP_SSL` | notifiers | relay SMTP de Brevo |
+| `BREVO_SMTP_USERNAME`, `BREVO_SMTP_PASSWORD` | notifiers | login SMTP (`beXXXXXXX@smtp-brevo.com`) + SMTP key |
+| `BREVO_FROM_ADDRESS`, `BREVO_FROM_NAME` | notifiers | remitente del correo |
 | `BREVO_RETRY_*`, `BREVO_CIRCUIT_*` | notifiers | parámetros de resiliencia (opcionales) |
 | `JWT_SECRET`, `JWT_EXPIRATION_SECONDS` | users | firma y vigencia del token |

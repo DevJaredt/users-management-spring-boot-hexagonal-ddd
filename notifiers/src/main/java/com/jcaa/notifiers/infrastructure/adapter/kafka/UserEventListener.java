@@ -11,11 +11,12 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Consumidor de los topicos {@code create-user} y {@code update-user} (pasos 3 y 4 del diagrama).
+ * Consumidor del topico {@code update-user} (pasos 3 y 4 del diagrama).
  *
  * <p>Traduce el evento a una notificacion de negocio ({@link UserNotificationService}) y publica
- * el resultado en {@code notification-status} (paso 7). Los datos personales nunca se registran en
- * los logs: solo identificadores tecnicos.
+ * el resultado en {@code notification-status} (paso 7). El <b>alta</b> no se notifica aqui: la
+ * dispara el evento {@code create-account} (ver {@link AccountEventListener}). Los datos personales
+ * nunca se registran en los logs: solo identificadores tecnicos.
  */
 @Slf4j
 @Component
@@ -35,7 +36,7 @@ public class UserEventListener {
   private final NotificationStatusPublisher statusPublisher;
 
   @KafkaListener(
-      topics = {"${kafka.topic.create-user}", "${kafka.topic.update-user}"},
+      topics = "${kafka.topic.update-user}",
       groupId = "${spring.kafka.consumer.group-id}",
       properties = {
         "spring.json.value.default.type=com.jcaa.notifiers.infrastructure.adapter.kafka.dto.UserEventMessage"
@@ -65,10 +66,6 @@ public class UserEventListener {
 
   private NotificationStatus dispatch(final UserEventMessage event) {
     switch (event.eventType()) {
-      case USER_CREATED -> {
-        userNotificationService.notifyUserCreated(event.name(), event.email(), event.role());
-        return NotificationStatus.SENT;
-      }
       case USER_UPDATED -> {
         userNotificationService.notifyUserUpdated(
             event.name(), event.email(), event.role(), event.status());

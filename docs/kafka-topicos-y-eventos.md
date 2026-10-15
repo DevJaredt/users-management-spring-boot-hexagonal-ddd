@@ -8,21 +8,24 @@ mensaje (`key`) es siempre el `userId`.
 
 | Tópico | Productor | Consumidor | Paso del diagrama |
 |---|---|---|---|
-| `create-user` | **users** | **notifiers** | 2 → 3 |
-| `update-user` | **users** | **notifiers** | 2 → 3 |
-| `create-account` | **accounts** | **notifiers** | 6 → 7 → 3 |
-| `notification-status` | **notifiers** | *(auditoría / observabilidad)* | 7 |
+| `create-user` | **users** | *(informativo, sin correo)* | 1 → 2 |
+| `update-user` | **users** | **notifiers** | 1 → 2 → 3 → 4 |
+| `create-account` | **accounts** | **notifiers** | 5 → 6 → 7 → 3 → 4 |
+| `notification-status` | **notifiers** | *(auditoría / observabilidad)* | — |
 
 - El **borrado de usuario no publica** nada (solo el alta y la actualización).
-- **notifiers** consume los tres primeros tópicos y, por cada evento, envía el correo y publica el
-  resultado en `notification-status`.
+- El **alta se notifica una sola vez**, a partir de `create-account`: por cada evento de ese tópico
+  **notifiers** envía el correo (usuario + cuenta asociada) y publica el resultado en
+  `notification-status`.
+- `create-user` se sigue publicando como evento informativo, pero **no dispara correo** (evita que
+  un alta genere dos notificaciones).
 - Los nombres son configurables por variables de entorno: `KAFKA_TOPIC_CREATE_USER`,
   `KAFKA_TOPIC_UPDATE_USER`, `KAFKA_TOPIC_CREATE_ACCOUNT`, `KAFKA_TOPIC_NOTIFICATION_STATUS`.
 
 ## `create-user` (alta de usuario)
 
-Lo publica **users** cuando crea un usuario. Lo consume **notifiers** y envía el correo de "cuenta
-creada".
+Lo publica **users** cuando crea un usuario. Es un evento **informativo**: **notifiers** no envía
+correo por él (el alta se notifica una sola vez desde `create-account`).
 
 ```json
 {
@@ -57,8 +60,8 @@ actualizada" (incluye el estado).
 
 ## `create-account` (alta de cuenta)
 
-Lo publica **accounts** cuando persiste la cuenta asociada al usuario (paso 6). **notifiers** envía
-el correo de "cuenta de servicio creada".
+Lo publica **accounts** cuando persiste la cuenta asociada al usuario (paso 6). Es el evento que
+dispara el correo de **alta**: **notifiers** avisa que se creó el usuario y su cuenta asociada.
 
 ```json
 {

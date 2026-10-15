@@ -5,7 +5,8 @@ import java.util.Objects;
 /**
  * Mensaje de correo listo para enviar, en terminos de negocio.
  *
- * <p>El puerto de salida lo recibe y la infraestructura decide como se entrega (API de Brevo).
+ * <p>El puerto de salida lo recibe y la infraestructura decide como se entrega (relay SMTP de
+ * Brevo).
  */
 public record EmailMessage(
     String recipientEmail, String recipientName, String subject, String htmlBody) {

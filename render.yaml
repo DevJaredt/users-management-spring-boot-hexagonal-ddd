@@ -88,7 +88,15 @@ services:
         value: notification-status
       - key: KAFKA_TOPICS_AUTO_CREATE
         value: "false"
-      - key: BREVO_API_KEY
+      - key: BREVO_SMTP_HOST
+        value: smtp-relay.brevo.com
+      # El plan free de Render bloquea los puertos 25/465/587, por eso se usa 2525.
+      # Con un plan pago se puede volver a 587 (STARTTLS).
+      - key: BREVO_SMTP_PORT
+        value: "2525"
+      - key: BREVO_SMTP_USERNAME
+        sync: false
+      - key: BREVO_SMTP_PASSWORD
         sync: false
       - key: BREVO_FROM_ADDRESS
         sync: false

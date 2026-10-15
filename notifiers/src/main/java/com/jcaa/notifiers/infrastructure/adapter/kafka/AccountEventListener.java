@@ -13,8 +13,10 @@ import org.springframework.stereotype.Component;
 /**
  * Consumidor del topico {@code create-account} (pasos 3 y 4 del diagrama para la cuenta).
  *
- * <p>Cuando el servicio accounts persiste una cuenta publica este evento; aqui se envia el correo
- * de confirmacion y se registra el resultado en {@code notification-status} (paso 7).
+ * <p>Cuando el servicio accounts persiste la cuenta publica este evento; aqui se envia el correo
+ * de <b>alta</b> (usuario + cuenta asociada) y se registra el resultado en
+ * {@code notification-status} (paso 7). Es el unico punto que notifica el alta: el evento
+ * {@code create-user} no envia correo.
  */
 @Slf4j
 @Component

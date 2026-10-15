@@ -40,6 +40,10 @@ build/
 .idea/
 *.log
 
+# Secretos locales (docker compose los carga desde .env)
+.env
+.env.local
+
 /spec/
 
 ### Secretos locales (certificados de Kafka, etc.) — NUNCA subir

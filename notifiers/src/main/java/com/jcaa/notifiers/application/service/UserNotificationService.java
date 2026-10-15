@@ -7,27 +7,28 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Decide QUE notificar cuando llega un evento de usuario.
+ * Decide QUE notificar cuando llega un evento.
  *
  * <p>No conoce Kafka ni Brevo: compone el mensaje de negocio y delega en {@link EmailSenderPort}.
+ *
+ * <p>El alta se notifica <b>una sola vez</b>, a partir del evento {@code create-account} (cuando la
+ * cuenta ya quedo persistida); el evento {@code create-user} no envia correo por si mismo.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserNotificationService {
 
-  private static final String SUBJECT_CREATED = "Tu cuenta ha sido creada — Gestion de Usuarios";
   private static final String SUBJECT_UPDATED =
       "Tu cuenta ha sido actualizada — Gestion de Usuarios";
   private static final String SUBJECT_ACCOUNT_CREATED =
-      "Tu cuenta de servicio ha sido creada — Gestion de Usuarios";
+      "Tu cuenta ha sido creada — Gestion de Usuarios";
 
-  private static final String BODY_CREATED =
+  private static final String BODY_ACCOUNT_CREATED =
       "<html><body><h2>Hola, %s</h2>"
-          + "<p>Tu cuenta ha sido creada exitosamente.</p>"
-          + "<ul><li><strong>Email:</strong> %s</li>"
-          + "<li><strong>Rol:</strong> %s</li></ul>"
-          + "<p>Ya puedes iniciar sesion con tu correo y la contrasena que registraste.</p>"
+          + "<p>Tu usuario fue creado exitosamente y la cuenta asociada a el tambien quedo"
+          + " registrada.</p>"
+          + "<ul><li><strong>Email:</strong> %s</li></ul>"
           + "</body></html>";
 
   private static final String BODY_UPDATED =
@@ -38,22 +39,16 @@ public class UserNotificationService {
           + "<li><strong>Estado:</strong> %s</li></ul>"
           + "</body></html>";
 
-  private static final String BODY_ACCOUNT_CREATED =
-      "<html><body><h2>Hola, %s</h2>"
-          + "<p>Tu cuenta de servicio ha sido creada exitosamente.</p>"
-          + "<ul><li><strong>Email:</strong> %s</li></ul>"
-          + "</body></html>";
-
   private final EmailSenderPort emailSenderPort;
 
-  public void notifyUserCreated(
-      final String name, final String email, final String role) {
+  /** Correo de alta: se envia cuando {@code accounts} confirma que la cuenta quedo persistida. */
+  public void notifyAccountCreated(final String name, final String email) {
     send(
         new EmailMessage(
             email,
             name,
-            SUBJECT_CREATED,
-            String.format(BODY_CREATED, escape(name), escape(email), escape(role))));
+            SUBJECT_ACCOUNT_CREATED,
+            String.format(BODY_ACCOUNT_CREATED, escape(name), escape(email))));
   }
 
   public void notifyUserUpdated(
@@ -64,15 +59,6 @@ public class UserNotificationService {
             name,
             SUBJECT_UPDATED,
             String.format(BODY_UPDATED, escape(name), escape(email), escape(role), escape(status))));
-  }
-
-  public void notifyAccountCreated(final String name, final String email) {
-    send(
-        new EmailMessage(
-            email,
-            name,
-            SUBJECT_ACCOUNT_CREATED,
-            String.format(BODY_ACCOUNT_CREATED, escape(name), escape(email))));
   }
 
   private void send(final EmailMessage message) {

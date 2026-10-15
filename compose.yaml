@@ -106,7 +106,10 @@ services:
       KAFKA_TOPIC_UPDATE_USER: update-user
       KAFKA_TOPIC_CREATE_ACCOUNT: create-account
       KAFKA_TOPIC_NOTIFICATION_STATUS: notification-status
-      BREVO_API_KEY: ${BREVO_API_KEY:-xkeysib-local-dummy}
+      BREVO_SMTP_HOST: ${BREVO_SMTP_HOST:-smtp-relay.brevo.com}
+      BREVO_SMTP_PORT: ${BREVO_SMTP_PORT:-587}
+      BREVO_SMTP_USERNAME: ${BREVO_SMTP_USERNAME:-local-dummy@example.com}
+      BREVO_SMTP_PASSWORD: ${BREVO_SMTP_PASSWORD:-local-dummy-smtp-key}
       BREVO_FROM_ADDRESS: ${BREVO_FROM_ADDRESS:-noreply@example.com}
       BREVO_FROM_NAME: ${BREVO_FROM_NAME:-Gestion de Usuarios}
     ports:

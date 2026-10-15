@@ -33,21 +33,22 @@ class UserNotificationServiceTest {
   }
 
   @Test
-  @DisplayName("notifyUserCreated() compone el mensaje con destinatario, asunto y HTML")
-  void shouldComposeCreatedMessage() {
+  @DisplayName("notifyAccountCreated() compone el mensaje de alta: usuario y cuenta asociada")
+  void shouldComposeAccountCreatedMessage() {
     // Act
-    service.notifyUserCreated(NAME, EMAIL, ROLE);
+    service.notifyAccountCreated(NAME, EMAIL);
 
     // Assert
     final EmailMessage message = captureMessage();
     assertAll(
-        "mensaje de creacion",
+        "mensaje de alta",
         () -> assertEquals(EMAIL, message.recipientEmail()),
         () -> assertEquals(NAME, message.recipientName()),
         () -> assertTrue(message.subject().contains("creada")),
         () -> assertTrue(message.htmlBody().contains(NAME)),
         () -> assertTrue(message.htmlBody().contains(EMAIL)),
-        () -> assertTrue(message.htmlBody().contains(ROLE)));
+        () -> assertTrue(message.htmlBody().contains("usuario")),
+        () -> assertTrue(message.htmlBody().contains("cuenta")));
   }
 
   @Test
@@ -68,7 +69,7 @@ class UserNotificationServiceTest {
   @DisplayName("escapa el HTML de los valores del evento para evitar inyeccion")
   void shouldEscapeHtmlFromEventValues() {
     // Act
-    service.notifyUserCreated("<script>alert(1)</script>", EMAIL, ROLE);
+    service.notifyAccountCreated("<script>alert(1)</script>", EMAIL);
 
     // Assert
     final EmailMessage message = captureMessage();
@@ -76,23 +77,6 @@ class UserNotificationServiceTest {
         "escape de HTML",
         () -> assertFalse(message.htmlBody().contains("<script>")),
         () -> assertTrue(message.htmlBody().contains("&lt;script&gt;")));
-  }
-
-  @Test
-  @DisplayName("notifyAccountCreated() compone el mensaje de la cuenta de servicio")
-  void shouldComposeAccountCreatedMessage() {
-    // Act
-    service.notifyAccountCreated(NAME, EMAIL);
-
-    // Assert
-    final EmailMessage message = captureMessage();
-    assertAll(
-        "mensaje de cuenta creada",
-        () -> assertEquals(EMAIL, message.recipientEmail()),
-        () -> assertEquals(NAME, message.recipientName()),
-        () -> assertTrue(message.subject().contains("servicio")),
-        () -> assertTrue(message.htmlBody().contains(NAME)),
-        () -> assertTrue(message.htmlBody().contains(EMAIL)));
   }
 
   private EmailMessage captureMessage() {
