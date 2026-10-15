@@ -1,0 +1,29 @@
+meta {
+  name: Crear cuenta (idempotente)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{accountsBaseUrl}}/api/accounts
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userId": "{{userId}}",
+    "name": "Bruno Test",
+    "email": "{{userEmail}}"
+  }
+}
+
+tests {
+  test("201 Created", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Eliminar usuario
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{usersBaseUrl}}/api/users/{{userId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("204 No Content", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

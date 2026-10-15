@@ -1,0 +1,33 @@
+meta {
+  name: Login (admin)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{usersBaseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{adminEmail}}",
+    "password": "{{adminPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("token", res.getBody().accessToken);
+}
+
+tests {
+  test("Login 200 y token presente", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().accessToken).to.be.a("string").and.not.empty;
+  });
+}

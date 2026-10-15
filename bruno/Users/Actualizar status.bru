@@ -1,0 +1,36 @@
+meta {
+  name: Actualizar status (ACTIVE)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{usersBaseUrl}}/api/users/{{userId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Bruno Test",
+    "email": "{{userEmail}}",
+    "password": "Bruno1234!",
+    "role": "MEMBER",
+    "status": "ACTIVE"
+  }
+}
+
+tests {
+  test("200 y status ACTIVE", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal("ACTIVE");
+  });
+}

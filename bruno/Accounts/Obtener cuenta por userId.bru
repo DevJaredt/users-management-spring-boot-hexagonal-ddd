@@ -1,0 +1,18 @@
+meta {
+  name: Obtener cuenta por userId
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{accountsBaseUrl}}/api/accounts/{{userId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().userId).to.equal(bru.getVar("userId"));
+  });
+}

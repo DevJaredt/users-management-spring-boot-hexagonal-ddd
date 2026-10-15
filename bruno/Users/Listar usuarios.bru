@@ -1,0 +1,21 @@
+meta {
+  name: Listar usuarios
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{usersBaseUrl}}/api/users
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

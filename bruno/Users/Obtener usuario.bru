@@ -1,0 +1,21 @@
+meta {
+  name: Obtener usuario
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{usersBaseUrl}}/api/users/{{userId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("200 OK", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
