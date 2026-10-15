@@ -41,10 +41,15 @@ Cada microservicio es un proyecto Maven **independiente y autocontenido** (su pr
 ├── render.yaml             # Blueprint con los 3 web services
 ├── users/                  # servicio users      (pasos 1, 2, 5)
 ├── notifiers/              # servicio notifiers  (pasos 3, 4, 7)
-└── accounts/               # servicio accounts   (paso 6)
+├── accounts/               # servicio accounts   (paso 6)
+└── docs/                   # documentación (esquema de base de datos, etc.)
 ```
 
 Cada servicio se compila, se prueba y se despliega por separado.
+
+## Documentación
+
+- [Esquema de la base de datos](docs/esquema-base-datos.md) — tablas `users` y `accounts`, DDL y datos semilla.
 
 ## Verificación (tests)
 
