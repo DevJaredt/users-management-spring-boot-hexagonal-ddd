@@ -1,0 +1,21 @@
+meta {
+  name: Eliminar archivo del usuario
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{usersBaseUrl}}/api/users/{{userId}}/files/{{fileName}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("204 No Content", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

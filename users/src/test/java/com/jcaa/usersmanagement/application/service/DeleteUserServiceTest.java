@@ -6,6 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.jcaa.usersmanagement.application.port.out.DeleteUserPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
+import com.jcaa.usersmanagement.application.port.out.UserCachePort;
+import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
+import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
 import com.jcaa.usersmanagement.application.service.dto.command.DeleteUserCommand;
 import com.jcaa.usersmanagement.domain.enums.UserRole;
 import com.jcaa.usersmanagement.domain.enums.UserStatus;
@@ -38,6 +41,8 @@ class DeleteUserServiceTest {
 
   @Mock private DeleteUserPort deleteUserPort;
   @Mock private GetUserByIdPort getUserByIdPort;
+  @Mock private UserEventPublisherPort userEventPublisherPort;
+  @Mock private UserCachePort userCachePort;
 
   private DeleteUserService service;
 
@@ -46,7 +51,11 @@ class DeleteUserServiceTest {
     try (final ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
       service =
           new DeleteUserService(
-              deleteUserPort, getUserByIdPort, validatorFactory.getValidator());
+              deleteUserPort,
+              getUserByIdPort,
+              userEventPublisherPort,
+              userCachePort,
+              validatorFactory.getValidator());
     }
   }
 
@@ -74,6 +83,8 @@ class DeleteUserServiceTest {
 
     // Assert
     verify(deleteUserPort).delete(new UserId("u-001"));
+    verify(userEventPublisherPort).publish(any(UserEvent.class));
+    verify(userCachePort).evict(new UserId("u-001"));
   }
 
   // ── usuario no encontrado
@@ -89,6 +100,7 @@ class DeleteUserServiceTest {
     // Act & Assert
     assertThrows(UserNotFoundException.class, () -> service.execute(command));
     verify(deleteUserPort, never()).delete(any());
+    verifyNoInteractions(userEventPublisherPort, userCachePort);
   }
 
   // ── validación del command
@@ -101,6 +113,6 @@ class DeleteUserServiceTest {
 
     // Act & Assert
     assertThrows(ConstraintViolationException.class, () -> service.execute(command));
-    verifyNoInteractions(deleteUserPort, getUserByIdPort);
+    verifyNoInteractions(deleteUserPort, getUserByIdPort, userEventPublisherPort, userCachePort);
   }
 }

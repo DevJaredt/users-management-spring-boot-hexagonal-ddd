@@ -1,0 +1,17 @@
+meta {
+  name: Buscar usuarios
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{searchBaseUrl}}/api/search/users?q={{searchQuery}}&page=0&size=20
+  body: none
+  auth: none
+}
+
+tests {
+  test("200 OK (requiere OPENSEARCH_ENABLED=true)", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

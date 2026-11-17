@@ -2,6 +2,7 @@ package com.jcaa.usersmanagement.application.service;
 
 import com.jcaa.usersmanagement.application.port.in.GetUserByIdUseCase;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
+import com.jcaa.usersmanagement.application.port.out.UserCachePort;
 import com.jcaa.usersmanagement.application.service.dto.query.GetUserByIdQuery;
 import com.jcaa.usersmanagement.application.service.mapper.UserApplicationMapper;
 import com.jcaa.usersmanagement.domain.exception.UserNotFoundException;
@@ -20,6 +21,7 @@ import java.util.Set;
 public class GetUserByIdService implements GetUserByIdUseCase {
 
   private final GetUserByIdPort getUserByIdPort;
+  private final UserCachePort userCachePort;
   private final Validator validator;
 
   @Override
@@ -27,9 +29,17 @@ public class GetUserByIdService implements GetUserByIdUseCase {
     validateQuery(query);
 
     final UserId userId = UserApplicationMapper.fromGetUserByIdQueryToUserId(query);
-    return getUserByIdPort
-        .getById(userId)
-        .orElseThrow(() -> UserNotFoundException.becauseIdWasNotFound(userId.value()));
+    return userCachePort.getById(userId).orElseGet(() -> loadFromDatabaseAndCache(userId));
+  }
+
+  /** Read-through: si la caché (Guía 10) no tiene el usuario, se lee de MySQL y se almacena. */
+  private UserModel loadFromDatabaseAndCache(final UserId userId) {
+    final UserModel user =
+        getUserByIdPort
+            .getById(userId)
+            .orElseThrow(() -> UserNotFoundException.becauseIdWasNotFound(userId.value()));
+    userCachePort.put(user);
+    return user;
   }
 
   private void validateQuery(final GetUserByIdQuery query) {

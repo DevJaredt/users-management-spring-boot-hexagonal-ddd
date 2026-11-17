@@ -8,19 +8,22 @@ mensaje (`key`) es siempre el `userId`.
 
 | Tópico | Productor | Consumidor | Paso del diagrama |
 |---|---|---|---|
-| `create-user` | **users** | *(informativo, sin correo)* | 1 → 2 |
-| `update-user` | **users** | **notifiers** | 1 → 2 → 3 → 4 |
+| `create-user` | **users** | **search** (índice) *(sin correo)* | 1 → 2 |
+| `update-user` | **users** | **notifiers** y **search** (índice) | 1 → 2 → 3 → 4 |
+| `delete-user` | **users** | **search** (retira del índice) | — |
 | `create-account` | **accounts** | **notifiers** | 5 → 6 → 7 → 3 → 4 |
 | `notification-status` | **notifiers** | *(auditoría / observabilidad)* | — |
 
-- El **borrado de usuario no publica** nada (solo el alta y la actualización).
+- El **borrado de usuario publica** `delete-user` para que **search** retire el documento de
+  OpenSearch. `notifiers` no envía correo por la baja.
 - El **alta se notifica una sola vez**, a partir de `create-account`: por cada evento de ese tópico
   **notifiers** envía el correo (usuario + cuenta asociada) y publica el resultado en
   `notification-status`.
 - `create-user` se sigue publicando como evento informativo, pero **no dispara correo** (evita que
-  un alta genere dos notificaciones).
+  un alta genere dos notificaciones). **search** lo usa para indexar.
 - Los nombres son configurables por variables de entorno: `KAFKA_TOPIC_CREATE_USER`,
-  `KAFKA_TOPIC_UPDATE_USER`, `KAFKA_TOPIC_CREATE_ACCOUNT`, `KAFKA_TOPIC_NOTIFICATION_STATUS`.
+  `KAFKA_TOPIC_UPDATE_USER`, `KAFKA_TOPIC_DELETE_USER`, `KAFKA_TOPIC_CREATE_ACCOUNT`,
+  `KAFKA_TOPIC_NOTIFICATION_STATUS`.
 
 ## `create-user` (alta de usuario)
 
@@ -50,6 +53,24 @@ actualizada" (incluye el estado).
   "eventId": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
   "eventType": "USER_UPDATED",
   "occurredAt": "2026-10-15T14:35:00.000Z",
+  "userId": "00000000-0000-0000-0000-000000000001",
+  "name": "John Arrieta",
+  "email": "john@example.com",
+  "role": "ADMIN",
+  "status": "ACTIVE"
+}
+```
+
+## `delete-user` (baja de usuario)
+
+Lo publica **users** al eliminar un usuario. **search** lo consume para retirar el documento del
+índice de OpenSearch. **notifiers** no reacciona a este tópico (no hay correo de baja).
+
+```json
+{
+  "eventId": "7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+  "eventType": "USER_DELETED",
+  "occurredAt": "2026-10-15T14:40:00.000Z",
   "userId": "00000000-0000-0000-0000-000000000001",
   "name": "John Arrieta",
   "email": "john@example.com",

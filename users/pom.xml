@@ -23,10 +23,27 @@
     <mysql.connector.version>9.3.0</mysql.connector.version>
     <bcrypt.version>0.10.2</bcrypt.version>
     <jjwt.version>0.13.0</jjwt.version>
+    <!-- AWS SDK v2: cliente S3 para Backblaze B2 (Guia 9) -->
+    <aws.sdk.version>2.29.9</aws.sdk.version>
+    <!-- Jedis: cliente compatible con Valkey/Redis para Aiven (Guia 10) -->
+    <jedis.version>5.2.0</jedis.version>
     <!-- Declarativas: Mockito y Jacoco siguen siendo explícitas para tener control -->
     <mockito.version>5.15.2</mockito.version>
     <jacoco.version>0.8.11</jacoco.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!-- BOM del AWS SDK v2: alinea todas sus librerías -->
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>${aws.sdk.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
 
@@ -81,6 +98,23 @@
     <dependency>
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
+    </dependency>
+
+    <!-- Guarda 9: Backblaze B2 se consume con la API compatible con S3 -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>url-connection-client</artifactId>
+    </dependency>
+
+    <!-- Guia 10: cache distribuida Valkey/Redis en Aiven -->
+    <dependency>
+      <groupId>redis.clients</groupId>
+      <artifactId>jedis</artifactId>
+      <version>${jedis.version}</version>
     </dependency>
 
     <!-- BCrypt para hashing de contraseñas -->

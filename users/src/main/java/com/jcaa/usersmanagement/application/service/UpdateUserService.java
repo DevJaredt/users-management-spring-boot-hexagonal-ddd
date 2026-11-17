@@ -5,6 +5,7 @@ import com.jcaa.usersmanagement.application.port.out.GetUserByEmailPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateAccountPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateUserPort;
+import com.jcaa.usersmanagement.application.port.out.UserCachePort;
 import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
 import com.jcaa.usersmanagement.application.port.out.dto.AccountRequest;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
@@ -36,6 +37,7 @@ public class UpdateUserService implements UpdateUserUseCase {
   private final GetUserByIdPort getUserByIdPort;
   private final GetUserByEmailPort getUserByEmailPort;
   private final UserEventPublisherPort userEventPublisherPort;
+  private final UserCachePort userCachePort;
   private final Validator validator;
 
   @Override
@@ -54,8 +56,14 @@ public class UpdateUserService implements UpdateUserUseCase {
 
     syncAccount(updatedUser);
     publishUserEvent(updatedUser);
+    refreshCache(updatedUser);
 
     return updatedUser;
+  }
+
+  /** Mantiene la caché consistente: se sobrescribe con el usuario actualizado. */
+  private void refreshCache(final UserModel user) {
+    userCachePort.put(user);
   }
 
   /** Sincroniza nombre y correo en la cuenta asociada (espejo del alta). */

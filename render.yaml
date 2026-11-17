@@ -1,9 +1,10 @@
 # =============================================================================
-# Blueprint de Render: los 3 microservicios de la arquitectura
+# Blueprint de Render: los 4 microservicios de la arquitectura
 #
-#   users      -> API REST + JWT, publica eventos y llama a accounts  (pasos 1, 2, 5)
+#   users      -> API REST + JWT, publica eventos, llama a accounts  (pasos 1, 2, 5)
 #   notifiers  -> consume eventos y envia el correo con Brevo         (pasos 3, 4, 7)
 #   accounts   -> persiste la cuenta asociada al usuario              (paso 6)
+#   search     -> CQRS de lectura sobre OpenSearch                    (guia 11)
 #
 # Al crear el Blueprint, Render pide completar los secretos marcados con sync: false.
 # =============================================================================
@@ -46,6 +47,8 @@ services:
         value: create-user
       - key: KAFKA_TOPIC_UPDATE_USER
         value: update-user
+      - key: KAFKA_TOPIC_DELETE_USER
+        value: delete-user
       - key: KAFKA_TOPICS_AUTO_CREATE
         value: "false"
       - key: ACCOUNTS_BASE_URL
@@ -54,6 +57,26 @@ services:
         generateValue: true
       - key: JWT_EXPIRATION_SECONDS
         value: "900"
+      # Guia 9 - Backblaze B2 (bucket privado, Application Key restringida)
+      - key: B2_ENABLED
+        value: "true"
+      - key: B2_ENDPOINT
+        value: https://s3.us-east-005.backblazeb2.com
+      - key: B2_REGION
+        value: us-east-005
+      - key: B2_BUCKET
+        sync: false
+      - key: B2_KEY_ID
+        sync: false
+      - key: B2_APPLICATION_KEY
+        sync: false
+      # Guia 10 - Cache Valkey/Redis en Aiven
+      - key: CACHE_ENABLED
+        value: "true"
+      - key: CACHE_URI
+        sync: false
+      - key: CACHE_TTL_SECONDS
+        value: "300"
 
   # ------------------------------------------------------------ notifiers
   - type: web
@@ -140,3 +163,45 @@ services:
         value: create-account
       - key: KAFKA_TOPICS_AUTO_CREATE
         value: "false"
+
+  # --------------------------------------------------------------- search
+  # Lado de lectura del CQRS: consume los eventos de users y consulta OpenSearch.
+  - type: web
+    name: search-service
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    dockerContext: ./search
+    dockerfilePath: ./search/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_SECURITY_PROTOCOL
+        value: SSL
+      - key: KAFKA_SSL_KEY
+        sync: false
+      - key: KAFKA_SSL_CERT
+        sync: false
+      - key: KAFKA_SSL_CA
+        sync: false
+      - key: KAFKA_CONSUMER_GROUP
+        value: search-group
+      - key: KAFKA_TOPIC_CREATE_USER
+        value: create-user
+      - key: KAFKA_TOPIC_UPDATE_USER
+        value: update-user
+      - key: KAFKA_TOPIC_DELETE_USER
+        value: delete-user
+      # Guia 11 - OpenSearch en Aiven
+      - key: OPENSEARCH_ENABLED
+        value: "true"
+      - key: OPENSEARCH_URL
+        sync: false
+      - key: OPENSEARCH_USERNAME
+        value: avnadmin
+      - key: OPENSEARCH_PASSWORD
+        sync: false
+      - key: OPENSEARCH_INDEX
+        value: users

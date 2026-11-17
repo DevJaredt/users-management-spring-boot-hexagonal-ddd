@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code USER_CREATED} -&gt; topico {@code create-user}
  *   <li>{@code USER_UPDATED} -&gt; topico {@code update-user}
+ *   <li>{@code USER_DELETED} -&gt; topico {@code delete-user} (lo consume el servicio search)
  * </ul>
  *
  * <p>La publicacion es <b>no bloqueante</b>: {@code KafkaTemplate.send} es asincrono, asi que la
@@ -40,14 +41,17 @@ public class UserEventKafkaPublisher implements UserEventPublisherPort {
   private final KafkaTemplate<String, UserEventMessage> kafkaTemplate;
   private final String createUserTopic;
   private final String updateUserTopic;
+  private final String deleteUserTopic;
 
   public UserEventKafkaPublisher(
       final KafkaTemplate<String, UserEventMessage> kafkaTemplate,
       @Value("${kafka.topic.create-user}") final String createUserTopic,
-      @Value("${kafka.topic.update-user}") final String updateUserTopic) {
+      @Value("${kafka.topic.update-user}") final String updateUserTopic,
+      @Value("${kafka.topic.delete-user}") final String deleteUserTopic) {
     this.kafkaTemplate = kafkaTemplate;
     this.createUserTopic = createUserTopic;
     this.updateUserTopic = updateUserTopic;
+    this.deleteUserTopic = deleteUserTopic;
   }
 
   @Override
@@ -81,7 +85,7 @@ public class UserEventKafkaPublisher implements UserEventPublisherPort {
     return switch (type) {
       case USER_CREATED -> createUserTopic;
       case USER_UPDATED -> updateUserTopic;
-      default -> null;
+      case USER_DELETED -> deleteUserTopic;
     };
   }
 }

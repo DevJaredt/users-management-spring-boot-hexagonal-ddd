@@ -8,6 +8,7 @@ import com.jcaa.usersmanagement.application.port.out.GetUserByEmailPort;
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateAccountPort;
 import com.jcaa.usersmanagement.application.port.out.UpdateUserPort;
+import com.jcaa.usersmanagement.application.port.out.UserCachePort;
 import com.jcaa.usersmanagement.application.port.out.UserEventPublisherPort;
 import com.jcaa.usersmanagement.application.port.out.dto.AccountRequest;
 import com.jcaa.usersmanagement.application.port.out.dto.UserEvent;
@@ -48,6 +49,7 @@ class UpdateUserServiceTest {
   @Mock private GetUserByIdPort getUserByIdPort;
   @Mock private GetUserByEmailPort getUserByEmailPort;
   @Mock private UserEventPublisherPort userEventPublisherPort;
+  @Mock private UserCachePort userCachePort;
 
   private UpdateUserService service;
 
@@ -67,6 +69,7 @@ class UpdateUserServiceTest {
               getUserByIdPort,
               getUserByEmailPort,
               userEventPublisherPort,
+              userCachePort,
               validatorFactory.getValidator());
     }
 
@@ -100,6 +103,7 @@ class UpdateUserServiceTest {
     assertNotNull(result);
     verify(updateUserPort).update(any(UserModel.class));
     verify(userEventPublisherPort).publish(any(UserEvent.class));
+    verify(userCachePort).put(any(UserModel.class));
   }
 
   // ── usuario no encontrado

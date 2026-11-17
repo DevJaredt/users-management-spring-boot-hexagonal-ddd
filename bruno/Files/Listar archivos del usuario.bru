@@ -1,0 +1,21 @@
+meta {
+  name: Listar archivos del usuario
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{usersBaseUrl}}/api/users/{{userId}}/files
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+tests {
+  test("200 OK (requiere B2_ENABLED=true)", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

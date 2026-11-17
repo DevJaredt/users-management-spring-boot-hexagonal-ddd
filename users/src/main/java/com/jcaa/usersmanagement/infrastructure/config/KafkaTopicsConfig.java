@@ -27,9 +27,11 @@ public class KafkaTopicsConfig {
   @Bean
   public NewTopics userTopics(
       @Value("${kafka.topic.create-user}") final String createUserTopic,
-      @Value("${kafka.topic.update-user}") final String updateUserTopic) {
+      @Value("${kafka.topic.update-user}") final String updateUserTopic,
+      @Value("${kafka.topic.delete-user}") final String deleteUserTopic) {
     return new NewTopics(
         TopicBuilder.name(createUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
-        TopicBuilder.name(updateUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build());
+        TopicBuilder.name(updateUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build(),
+        TopicBuilder.name(deleteUserTopic).partitions(PARTITIONS).replicas(REPLICAS).build());
   }
 }

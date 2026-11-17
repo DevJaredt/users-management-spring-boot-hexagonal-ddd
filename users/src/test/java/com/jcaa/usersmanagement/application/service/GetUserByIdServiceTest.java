@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.jcaa.usersmanagement.application.port.out.GetUserByIdPort;
+import com.jcaa.usersmanagement.application.port.out.UserCachePort;
 import com.jcaa.usersmanagement.application.service.dto.query.GetUserByIdQuery;
 import com.jcaa.usersmanagement.domain.enums.UserRole;
 import com.jcaa.usersmanagement.domain.enums.UserStatus;
@@ -35,13 +36,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class GetUserByIdServiceTest {
 
   @Mock private GetUserByIdPort getUserByIdPort;
+  @Mock private UserCachePort userCachePort;
 
   private GetUserByIdService service;
 
   @BeforeEach
   void setUp() {
     try (final ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
-      service = new GetUserByIdService(getUserByIdPort, validatorFactory.getValidator());
+      service =
+          new GetUserByIdService(
+              getUserByIdPort, userCachePort, validatorFactory.getValidator());
     }
   }
 
@@ -69,6 +73,33 @@ class GetUserByIdServiceTest {
 
     // Assert
     assertSame(expected, result, "debe retornar exactamente el usuario del puerto");
+    verify(userCachePort).put(expected);
+  }
+
+  // ── cache hit
+
+  @Test
+  @DisplayName("execute() retorna el usuario de la caché sin consultar la base de datos")
+  void shouldReturnUserFromCacheWhenPresent() {
+    // Arrange
+    final GetUserByIdQuery query = new GetUserByIdQuery("u-001");
+    final UserModel cached =
+        new UserModel(
+            new UserId("u-001"),
+            new UserName("John Arrieta"),
+            new UserEmail("john@example.com"),
+            UserPassword.fromHash("$2a$12$abcdefghijklmnopqrstuO"),
+            UserRole.ADMIN,
+            UserStatus.ACTIVE);
+
+    when(userCachePort.getById(any())).thenReturn(Optional.of(cached));
+
+    // Act
+    final UserModel result = service.execute(query);
+
+    // Assert
+    assertSame(cached, result, "debe retornar el usuario cacheado");
+    verifyNoInteractions(getUserByIdPort);
   }
 
   // ── usuario no encontrado
@@ -83,6 +114,7 @@ class GetUserByIdServiceTest {
 
     // Act & Assert
     assertThrows(UserNotFoundException.class, () -> service.execute(query));
+    verify(userCachePort, never()).put(any());
   }
 
   // ── validación del query
@@ -95,6 +127,6 @@ class GetUserByIdServiceTest {
 
     // Act & Assert
     assertThrows(ConstraintViolationException.class, () -> service.execute(query));
-    verifyNoInteractions(getUserByIdPort);
+    verifyNoInteractions(getUserByIdPort, userCachePort);
   }
 }

@@ -1,0 +1,21 @@
+meta {
+  name: Descargar archivo del usuario
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{usersBaseUrl}}/api/users/{{userId}}/files/{{fileName}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Sube primero un archivo con POST /api/users/{userId}/files
+  (multipart/form-data, campo "file") desde Swagger UI o curl.
+  Luego ajusta {{fileName}} en el entorno.
+}

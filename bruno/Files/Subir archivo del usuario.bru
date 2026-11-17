@@ -1,0 +1,31 @@
+meta {
+  name: Subir archivo del usuario
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{usersBaseUrl}}/api/users/{{userId}}/files
+  body: multipartForm
+  auth: bearer
+}
+
+body:multipart-form {
+  file: @file(./certificado-prueba.pdf)
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+docs {
+  Sube el PDF de ejemplo que está junto a esta petición.
+  Requiere un usuario existente en {{userId}} y un token con rol ADMIN.
+  Si quieres usar otro archivo, cámbialo desde la pestaña Body -> Multipart Form.
+}
+
+tests {
+  test("201 Created", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

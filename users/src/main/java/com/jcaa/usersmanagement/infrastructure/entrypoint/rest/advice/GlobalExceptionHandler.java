@@ -3,8 +3,11 @@ package com.jcaa.usersmanagement.infrastructure.entrypoint.rest.advice;
 import com.jcaa.usersmanagement.domain.exception.DomainException;
 import com.jcaa.usersmanagement.domain.exception.InvalidCredentialsException;
 import com.jcaa.usersmanagement.domain.exception.UserAlreadyExistsException;
+import com.jcaa.usersmanagement.domain.exception.UserFileNotFoundException;
+import com.jcaa.usersmanagement.domain.exception.UserFileStorageUnavailableException;
 import com.jcaa.usersmanagement.domain.exception.UserNotFoundException;
 import com.jcaa.usersmanagement.infrastructure.adapter.persistence.exception.PersistenceException;
+import com.jcaa.usersmanagement.infrastructure.adapter.storage.exception.FileStorageException;
 import com.jcaa.usersmanagement.infrastructure.entrypoint.rest.dto.response.ApiErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -68,6 +71,26 @@ public class GlobalExceptionHandler {
   public ApiErrorResponse handlePersistence(final PersistenceException ignored) {
     return new ApiErrorResponse(
         HttpStatus.INTERNAL_SERVER_ERROR.value(), "Error de persistencia.");
+  }
+
+  @ExceptionHandler(UserFileNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ApiErrorResponse handleFileNotFound(final UserFileNotFoundException exception) {
+    return new ApiErrorResponse(HttpStatus.NOT_FOUND.value(), exception.getMessage());
+  }
+
+  @ExceptionHandler(UserFileStorageUnavailableException.class)
+  @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+  public ApiErrorResponse handleStorageUnavailable(
+      final UserFileStorageUnavailableException exception) {
+    return new ApiErrorResponse(HttpStatus.SERVICE_UNAVAILABLE.value(), exception.getMessage());
+  }
+
+  @ExceptionHandler(FileStorageException.class)
+  @ResponseStatus(HttpStatus.BAD_GATEWAY)
+  public ApiErrorResponse handleFileStorage(final FileStorageException ignored) {
+    return new ApiErrorResponse(
+        HttpStatus.BAD_GATEWAY.value(), "Error al comunicarse con el almacenamiento de archivos.");
   }
 
   @ExceptionHandler(Exception.class)

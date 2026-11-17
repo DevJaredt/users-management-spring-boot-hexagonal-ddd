@@ -31,6 +31,10 @@ dependencias se resuelven con configuración y component scanning.
 | **users** | CRUD de usuarios, JWT; publica `create-user`/`update-user` (productor 1) y crea/sincroniza la cuenta (REST) | 1, 2, 5 |
 | **notifiers** | Consume `update-user` y `create-account` y envía el correo por el relay SMTP de Brevo; publica el estado | 3, 4 |
 | **accounts** | Persiste la cuenta asociada y publica `create-account` (productor 2) | 6, 7 |
+| **search** | Consume los eventos de usuario e indexa en OpenSearch; las búsquedas se resuelven contra el índice (CQRS) | — |
+
+Además de los pasos del diagrama, `users` almacena fotos/PDFs en **Backblaze B2** y cachea usuarios
+en **Valkey** (Aiven); `search` mantiene el índice de **OpenSearch** al día con los eventos de Kafka.
 
 Infraestructura: **Kafka** (Aiven en producción, con **SSL/mTLS** por certificado de cliente) y
 **MySQL/TiDB** compartida por `users` y `accounts` (tablas `users` y `accounts`).
@@ -48,12 +52,13 @@ Cada microservicio es un proyecto Maven **independiente y autocontenido** (su pr
 
 ```
 .
-├── compose.yaml            # pila local: Kafka + MySQL + los 3 servicios
-├── render.yaml             # Blueprint con los 3 web services
+├── compose.yaml            # pila local: Kafka + MySQL + los 4 servicios
+├── render.yaml             # Blueprint con los 4 web services
 ├── users/                  # servicio users      (pasos 1, 2, 5)
 ├── notifiers/              # servicio notifiers  (pasos 3, 4, 7)
 ├── accounts/               # servicio accounts   (paso 6)
-└── docs/                   # documentación (esquema de base de datos, etc.)
+├── search/                 # servicio search     (lectura CQRS sobre OpenSearch, guía 11)
+└── docs/                   # documentación (esquema de base de datos, integración cloud, etc.)
 ```
 
 Cada servicio se compila, se prueba y se despliega por separado.
@@ -62,6 +67,8 @@ Cada servicio se compila, se prueba y se despliega por separado.
 
 - [Esquema de la base de datos](docs/esquema-base-datos.md) — tablas `users` y `accounts`, DDL y datos semilla.
 - [Tópicos de Kafka y contrato de los eventos](docs/kafka-topicos-y-eventos.md) — productores, consumidores y JSON de cada evento.
+- [Integración de servicios cloud](docs/integracion-cloud-b2-valkey-opensearch.md) — Backblaze B2 (archivos), Valkey (caché) y OpenSearch (CQRS), con los endpoints y variables de entorno.
+- [Servicios cloud requeridos (PDF)](docs/servicios-cloud-requeridos.pdf) — checklist de aprovisionamiento: qué crear, cómo configurarlo y qué variables llenar.
 
 ## Verificación (tests)
 
@@ -69,13 +76,14 @@ Cada servicio se compila, se prueba y se despliega por separado.
 cd users     && ./mvnw clean test   # servicio users
 cd notifiers && ./mvnw clean test   # servicio notifiers
 cd accounts  && ./mvnw clean test   # servicio accounts
+cd search    && ./mvnw clean test   # servicio search
 ```
 
 En Windows se puede utilizar `mvnw.cmd` o `mvnw.ps1` dentro de cada carpeta.
 
 ## Ejecución local
 
-El archivo `compose.yaml` levanta **Kafka (KRaft), MySQL y los tres servicios**, con el esquema y
+El archivo `compose.yaml` levanta **Kafka (KRaft), MySQL y los cuatro servicios**, con el esquema y
 las tablas `users` y `accounts` cargados automáticamente.
 
 ```bash
@@ -87,7 +95,12 @@ docker compose up --build
 | users (Swagger UI) | http://localhost:8080/swagger-ui/index.html |
 | accounts | http://localhost:8082/api/accounts |
 | notifiers (health) | http://localhost:8081/actuator/health |
+| search (health) | http://localhost:8083/actuator/health |
 | Kafka (desde tu equipo) | `localhost:29092` |
+
+> Los servicios cloud del taller (B2, Valkey y OpenSearch) están **deshabilitados por defecto** en
+> local (`B2_ENABLED`, `CACHE_ENABLED`, `OPENSEARCH_ENABLED` en `false`). Copia `.env.example` a
+> `.env`, completa las credenciales y pon los flags en `true` para usar los proveedores reales.
 
 Para probar el envío real de correo, exporta antes las credenciales SMTP de Brevo
 (Brevo → SMTP & API → SMTP):
@@ -127,12 +140,12 @@ $env:KAFKA_SSL_CERT = Get-Content -Raw service.crt
 $env:KAFKA_SSL_CA   = Get-Content -Raw ca.crt
 ```
 
-Los tres servicios (`users`, `notifiers`, `accounts`) usan las mismas variables. Los eventos viajan
-como **JSON** y los certificados **nunca** deben subirse al repositorio.
+Los cuatro servicios (`users`, `notifiers`, `accounts`, `search`) usan las mismas variables. Los
+eventos viajan como **JSON** y los certificados **nunca** deben subirse al repositorio.
 
 ## Despliegue en Render
 
-`render.yaml` define los **tres web services** con build Docker y despliegue automático de cada
+`render.yaml` define los **cuatro web services** con build Docker y despliegue automático de cada
 commit que llegue a la rama `main`.
 
 1. Crear un **Blueprint** en Render y seleccionar este repositorio.
@@ -140,12 +153,14 @@ commit que llegue a la rama `main`.
    `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `KAFKA_BOOTSTRAP_SERVERS`,
    `KAFKA_SSL_KEY`, `KAFKA_SSL_CERT`, `KAFKA_SSL_CA` (los 3 PEM del certificado de cliente),
    `ACCOUNTS_BASE_URL` (URL pública del servicio accounts), `BREVO_SMTP_USERNAME`,
-   `BREVO_SMTP_PASSWORD` y `BREVO_FROM_ADDRESS`.
+   `BREVO_SMTP_PASSWORD`, `BREVO_FROM_ADDRESS`, `B2_BUCKET`, `B2_KEY_ID`, `B2_APPLICATION_KEY`,
+   `CACHE_URI`, `OPENSEARCH_URL` y `OPENSEARCH_PASSWORD`.
 3. Usar una instancia **MySQL/TiDB** accesible desde Internet o desde la red privada de Render y
    ejecutar `users/src/main/resources/schema.sql` **una vez** para crear las tablas `users` y `accounts`.
-4. Crear los tópicos `create-user`, `update-user`, `create-account` y `notification-status` en el
-   broker (o dejar `KAFKA_TOPICS_AUTO_CREATE=true`).
-5. Desplegar el Blueprint. El servicio `users` expone Swagger UI en `/swagger-ui.html`.
+4. Crear los tópicos `create-user`, `update-user`, `delete-user`, `create-account` y
+   `notification-status` en el broker (o dejar `KAFKA_TOPICS_AUTO_CREATE=true`).
+5. Desplegar el Blueprint. El servicio `users` expone Swagger UI en `/swagger-ui.html` y `search` en
+   `/swagger-ui/index.html`.
 
 > **Puerto SMTP en Render.** El plan **free** de Render bloquea el tráfico saliente por los puertos
 > `25`, `465` y `587`, así que el servicio `notifiers` sale por el puerto **`2525`** de Brevo
@@ -163,9 +178,13 @@ desarrollo local se proporcionan como variables de entorno.
 | `KAFKA_BOOTSTRAP_SERVERS` | users, notifiers, accounts | broker de Kafka |
 | `KAFKA_SECURITY_PROTOCOL=SSL`, `KAFKA_SSL_KEY`, `KAFKA_SSL_CERT`, `KAFKA_SSL_CA` | users, notifiers, accounts | certificado de cliente (mTLS) de Aiven: los 3 PEM |
 | `KAFKA_TOPIC_CREATE_USER`, `KAFKA_TOPIC_UPDATE_USER` | users, notifiers | tópicos de usuarios |
+| `KAFKA_TOPIC_DELETE_USER` | users, search | baja de usuario: retira el documento del índice |
 | `KAFKA_TOPIC_CREATE_ACCOUNT` | accounts, notifiers | tópico de cuentas |
 | `KAFKA_TOPIC_NOTIFICATION_STATUS` | notifiers | estado del envío (async) |
 | `ACCOUNTS_BASE_URL` | users | URL del servicio accounts |
+| `B2_ENABLED`, `B2_ENDPOINT`, `B2_REGION`, `B2_BUCKET`, `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_MAX_FILE_SIZE_BYTES` | users | bucket privado y Application Key de Backblaze B2 (guía 9) |
+| `CACHE_ENABLED`, `CACHE_URI`, `CACHE_TTL_SECONDS`, `CACHE_KEY_PREFIX` | users | caché Valkey/Redis de Aiven (guía 10) |
+| `OPENSEARCH_ENABLED`, `OPENSEARCH_URL`, `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD`, `OPENSEARCH_INDEX` | search | índice de búsqueda en OpenSearch (guía 11) |
 | `BREVO_SMTP_HOST`, `BREVO_SMTP_PORT`, `BREVO_SMTP_AUTH`, `BREVO_SMTP_STARTTLS`, `BREVO_SMTP_SSL` | notifiers | relay SMTP de Brevo |
 | `BREVO_SMTP_USERNAME`, `BREVO_SMTP_PASSWORD` | notifiers | login SMTP (`beXXXXXXX@smtp-brevo.com`) + SMTP key |
 | `BREVO_FROM_ADDRESS`, `BREVO_FROM_NAME` | notifiers | remitente del correo |
